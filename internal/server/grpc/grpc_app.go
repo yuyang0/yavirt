@@ -62,6 +62,7 @@ func (y *GRPCYavirtd) GetGuest(ctx context.Context, opts *pb.GetGuestOptions) (*
 		ImageId:       guest.ImageID,
 		ImageName:     guest.ImageName,
 		Networks:      guest.Networks,
+		Labels:        guest.Labels,
 	}, nil
 }
 

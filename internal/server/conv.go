@@ -27,6 +27,7 @@ func convGuestResp(g *models.Guest) (resp *types.Guest) {
 	resp.ImageUser = g.ImageUser
 	resp.CPU = g.CPU
 	resp.Mem = g.Memory
+	resp.Labels = g.JSONLabels
 
 	if len(g.IPs) > 0 {
 		var ips = make([]string, len(g.IPs))
