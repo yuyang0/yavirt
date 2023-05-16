@@ -40,3 +40,7 @@ func Setup(memberID uint32, seed time.Time) {
 func Next() string {
 	return gen.Next()
 }
+
+func CheckID(id string) bool {
+	return len(id) >= 32
+}

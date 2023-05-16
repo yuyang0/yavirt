@@ -16,6 +16,7 @@ import (
 	"github.com/projecteru2/yavirt/internal/virt/guest"
 	"github.com/projecteru2/yavirt/internal/virt/types"
 	"github.com/projecteru2/yavirt/pkg/errors"
+	"github.com/projecteru2/yavirt/pkg/idgen"
 	"github.com/projecteru2/yavirt/pkg/log"
 	"github.com/projecteru2/yavirt/pkg/utils"
 )
@@ -74,7 +75,7 @@ type Controllable interface {
 type Loadable interface {
 	Load(ctx virt.Context, id string) (*guest.Guest, error)
 	LoadUUID(ctx virt.Context, id string) (string, error)
-	ListLocalIDs(virt.Context) ([]string, error)
+	ListLocalIDs(ctx virt.Context, onlyERU bool) ([]string, error)
 }
 
 var imageMutex sync.Mutex
@@ -595,8 +596,21 @@ func (m Manager) doCtrl(ctx virt.Context, id string, op op, fn doCtrlFunc, rollb
 }
 
 // ListLocals lists all local guests.
-func (m Manager) ListLocalIDs(ctx virt.Context) ([]string, error) {
-	return guest.ListLocalIDs(ctx)
+func (m Manager) ListLocalIDs(ctx virt.Context, onlyERU bool) ([]string, error) {
+	ids, err := guest.ListLocalIDs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !onlyERU {
+		return ids, nil
+	}
+	var ans []string
+	for _, id := range ids {
+		if idgen.CheckID(id) {
+			ans = append(ans, id)
+		}
+	}
+	return ans, nil
 }
 
 // LoadUUID read a guest's UUID.

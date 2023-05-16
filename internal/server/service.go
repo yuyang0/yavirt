@@ -168,7 +168,7 @@ func (svc *Service) GetGuest(ctx virt.Context, id string) (*types.Guest, error) 
 
 // GetGuestIDList .
 func (svc *Service) GetGuestIDList(ctx virt.Context) ([]string, error) {
-	ids, err := svc.guest.ListLocalIDs(ctx)
+	ids, err := svc.guest.ListLocalIDs(ctx, true)
 	if err != nil {
 		log.ErrorStack(err)
 		metrics.IncrError()
