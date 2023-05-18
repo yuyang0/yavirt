@@ -315,25 +315,25 @@ func (_m *Manageable) ListImage(ctx virt.Context, filter string) ([]models.Image
 	return r0, r1
 }
 
-// ListLocalIDs provides a mock function with given fields: _a0
-func (_m *Manageable) ListLocalIDs(_a0 virt.Context) ([]string, error) {
-	ret := _m.Called(_a0)
+// ListLocalIDs provides a mock function with given fields: ctx, onlyERU
+func (_m *Manageable) ListLocalIDs(ctx virt.Context, onlyERU bool) ([]string, error) {
+	ret := _m.Called(ctx, onlyERU)
 
 	var r0 []string
 	var r1 error
-	if rf, ok := ret.Get(0).(func(virt.Context) ([]string, error)); ok {
-		return rf(_a0)
+	if rf, ok := ret.Get(0).(func(virt.Context, bool) ([]string, error)); ok {
+		return rf(ctx, onlyERU)
 	}
-	if rf, ok := ret.Get(0).(func(virt.Context) []string); ok {
-		r0 = rf(_a0)
+	if rf, ok := ret.Get(0).(func(virt.Context, bool) []string); ok {
+		r0 = rf(ctx, onlyERU)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]string)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(virt.Context) error); ok {
-		r1 = rf(_a0)
+	if rf, ok := ret.Get(1).(func(virt.Context, bool) error); ok {
+		r1 = rf(ctx, onlyERU)
 	} else {
 		r1 = ret.Error(1)
 	}
