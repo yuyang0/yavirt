@@ -9,6 +9,7 @@ require (
 	github.com/getsentry/sentry-go v0.20.0
 	github.com/gin-gonic/gin v1.9.0
 	github.com/google/uuid v1.3.0
+	github.com/jaypipes/ghw v0.10.0
 	github.com/juju/errors v1.0.0
 	github.com/libvirt/libvirt-go v7.4.0+incompatible
 	github.com/projectcalico/api v0.0.0-20230222223746-44aa60c2201f

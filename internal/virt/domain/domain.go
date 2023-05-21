@@ -7,6 +7,7 @@ import (
 
 	_ "embed"
 
+	pciaddr "github.com/jaypipes/ghw/pkg/pci/address"
 	"github.com/projecteru2/yavirt/configs"
 	"github.com/projecteru2/yavirt/internal/models"
 	"github.com/projecteru2/yavirt/internal/virt/template"
@@ -322,7 +323,7 @@ func (d *VirtDomain) render() ([]byte, error) {
 		"uuid":              uuid,
 		"memory":            d.guest.MemoryInMiB(),
 		"cpu":               d.guest.CPU,
-		"gpus":              []string{},
+		"gpus":              d.gpus(),
 		"sysvol":            sysVol.Filepath(),
 		"gasock":            d.guest.SocketFilepath(),
 		"datavols":          d.dataVols(d.guest.Vols),
@@ -371,6 +372,21 @@ func (d *VirtDomain) dataVols(vols models.Volumes) []map[string]string {
 	}
 
 	return dat
+}
+
+func (d *VirtDomain) gpus() []map[string]string {
+	res := []map[string]string{}
+	for _, gaddr := range d.guest.GPUAddrs {
+		addr := pciaddr.FromString(gaddr)
+		r := map[string]string{
+			"domain":   addr.Domain,
+			"bus":      addr.Bus,
+			"slot":     addr.Device,
+			"function": addr.Function,
+		}
+		res = append(res, r)
+	}
+	return res
 }
 
 // GetXMLString .

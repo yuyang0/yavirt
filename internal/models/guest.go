@@ -2,6 +2,7 @@ package models
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"github.com/projecteru2/yavirt/internal/vnet/handler"
 	"github.com/projecteru2/yavirt/pkg/errors"
 	"github.com/projecteru2/yavirt/pkg/idgen"
+	"github.com/projecteru2/yavirt/pkg/log"
 	"github.com/projecteru2/yavirt/pkg/store"
 	"github.com/projecteru2/yavirt/pkg/utils"
 )
@@ -29,6 +31,7 @@ type Guest struct {
 	CPU              int               `json:"cpu"`
 	Memory           int64             `json:"mem"`
 	VolIDs           []string          `json:"vols"`
+	GPUAddrs         []string          `json:"gpus"`
 	IPNets           meta.IPNets       `json:"ips"`
 	ExtraNetworks    Networks          `json:"extra_networks,omitempty"`
 	NetworkMode      string            `json:"network,omitempty"`
@@ -353,6 +356,14 @@ func (m *Manager) CreateGuest(opts types.GuestCreateOption, host *Host, vols []*
 			Cmd:       opts.Cmd,
 			CmdOutput: nil,
 		}
+	}
+	log.Debugf("Resources: %v", opts.Resources)
+	if bs, ok := opts.Resources["gpu"]; ok {
+		var eParams types.GPUEngineParams
+		if err := json.Unmarshal(bs, &eParams); err != nil {
+			return nil, errors.Trace(err)
+		}
+		guest.GPUAddrs = eParams.Addrs
 	}
 
 	if err := guest.AppendVols(vols...); err != nil {
