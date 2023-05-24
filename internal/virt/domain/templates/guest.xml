@@ -110,7 +110,9 @@
     <memballoon model='virtio'>
       <address type='pci' domain='0x0000' bus='0x00' slot='0x06' function='0x0'/>
     </memballoon>
-
+    <video>
+      <model type='cirrus' vram='16384' heads='1' />
+    </video>
     {{range .gpus}}
     <hostdev mode='subsystem' type='pci' managed='yes'>
       <source>
