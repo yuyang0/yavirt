@@ -6,6 +6,7 @@ import (
 	"github.com/projecteru2/yavirt/configs"
 	"github.com/projecteru2/yavirt/internal/meta"
 	"github.com/projecteru2/yavirt/pkg/netx"
+	"github.com/projecteru2/yavirt/pkg/utils/hardware"
 )
 
 // Host .
@@ -28,15 +29,38 @@ type Host struct {
 
 // LoadHost .
 func LoadHost() (*Host, error) {
+	cfg := &configs.Conf
+	cpu, mem, sto := cfg.Host.CPU, int64(cfg.Host.Memory), int64(cfg.Host.Storage)
+	// update cpu, memory, storage using hardware information
+	if cpu == 0 || mem == 0 {
+		cpumem, err := hardware.FetchCPUMem()
+		if err != nil {
+			return nil, err
+		}
+		if cpu == 0 {
+			cpu = int(cpumem.CPU)
+		}
+		if mem == 0 {
+			mem = cpumem.Memory
+		}
+	}
+	if sto == 0 {
+		storage, err := hardware.FetchStorage()
+		if err != nil {
+			return nil, err
+		}
+		sto = storage.Storage
+	}
+
 	host := &Host{
 		Generic:     newGeneric(),
-		Name:        configs.Conf.Host.Name,
+		Name:        cfg.Host.Name,
 		Type:        HostVirtType,
-		Subnet:      int64(configs.Conf.Host.Subnet),
-		CPU:         configs.Conf.Host.CPU,
-		Memory:      int64(configs.Conf.Host.Memory),
-		Storage:     int64(configs.Conf.Host.Storage),
-		NetworkMode: configs.Conf.Host.NetworkMode,
+		Subnet:      int64(cfg.Host.Subnet),
+		CPU:         cpu,
+		Memory:      mem,
+		Storage:     sto,
+		NetworkMode: cfg.Host.NetworkMode,
 	}
 	dec, err := netx.IPv4ToInt(configs.Conf.Host.Addr)
 	if err != nil {

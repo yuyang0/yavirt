@@ -52,7 +52,9 @@ func (s *apiServer) host() *models.Host { //nolint
 }
 
 func (s *apiServer) Info(c *gin.Context) {
-	s.renderOK(c, s.service.Info())
+	s.dispatch(c, nil, func(ctx virt.Context) (any, error) {
+		return s.service.Info()
+	})
 }
 
 func (s *apiServer) Ping(c *gin.Context) {

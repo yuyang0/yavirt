@@ -49,9 +49,9 @@ recovery_interval = "10m"
 [host]
 name = "host1"
 subnet = "127.0.0.1"
-cpu = 4
-memory = "1g"
-storage = "40g"
+cpu = 0
+memory = ""
+storage = ""
 network = "calico"
 
 [core]

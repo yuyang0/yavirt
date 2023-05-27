@@ -38,6 +38,9 @@ type CoreConfig struct {
 }
 
 func (a *sizeType) UnmarshalText(text []byte) error {
+	if len(text) == 0 {
+		return nil
+	}
 	var err error
 	i, err := humanize.ParseBytes(string(text))
 	if err != nil {
@@ -222,7 +225,6 @@ func (cfg *Config) Prepare(c *cli.Context) (err error) {
 	if len(cfg.Core.Addrs) == 0 {
 		return errors.New("Core addresses are needed")
 	}
-
 	return cfg.loadVirtDirs()
 }
 

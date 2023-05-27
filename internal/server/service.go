@@ -22,6 +22,7 @@ import (
 	"github.com/projecteru2/yavirt/pkg/errors"
 	"github.com/projecteru2/yavirt/pkg/log"
 	"github.com/projecteru2/yavirt/pkg/utils"
+	"github.com/projecteru2/yavirt/pkg/utils/hardware"
 )
 
 // Service .
@@ -145,14 +146,18 @@ func (svc *Service) Ping() map[string]string {
 }
 
 // Info .
-func (svc *Service) Info() types.HostInfo {
-	return types.HostInfo{
+func (svc *Service) Info() (*types.HostInfo, error) {
+	res, err := hardware.FetchResources()
+	if err != nil {
+		return nil, err
+	}
+	return &types.HostInfo{
 		ID:        fmt.Sprintf("%d", svc.Host.ID),
 		CPU:       svc.Host.CPU,
 		Mem:       svc.Host.Memory,
 		Storage:   svc.Host.Storage,
-		Resources: map[string][]byte{},
-	}
+		Resources: res,
+	}, nil
 }
 
 // GetGuest .

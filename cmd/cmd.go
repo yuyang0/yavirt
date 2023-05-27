@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -10,6 +11,9 @@ import (
 	"github.com/projecteru2/yavirt/cmd/image"
 	"github.com/projecteru2/yavirt/cmd/maint"
 	"github.com/projecteru2/yavirt/cmd/network"
+	"github.com/projecteru2/yavirt/cmd/run"
+	"github.com/projecteru2/yavirt/configs"
+	"github.com/projecteru2/yavirt/internal/server"
 	"github.com/projecteru2/yavirt/internal/ver"
 	"github.com/projecteru2/yavirt/pkg/errors"
 )
@@ -63,6 +67,10 @@ func main() {
 			},
 		},
 		Commands: []*cli.Command{
+			{
+				Name:   "info",
+				Action: run.Run(info),
+			},
 			guest.Command(),
 			image.Command(),
 			network.Command(),
@@ -75,4 +83,36 @@ func main() {
 	if err := app.Run(os.Args); err != nil {
 		fmt.Println(errors.Stack(err))
 	}
+}
+
+func info(c *cli.Context, runtime run.Runtime) (err error) {
+	cfg := &configs.Conf
+
+	if err := cfg.Load([]string{c.String("config")}); err != nil {
+		return errors.Trace(err)
+	}
+	if err := cfg.Prepare(c); err != nil {
+		return err
+	}
+	svc, err := server.SetupYavirtdService()
+	if err != nil {
+		return err
+	}
+	info, err := svc.Info()
+	if err != nil {
+		return err
+	}
+	ans := map[string]string{
+		"addr":     cfg.Host.Addr,
+		"hostname": cfg.Host.Name,
+	}
+	for name, res := range info.Resources {
+		ans[name] = string(res)
+	}
+	if b, err := json.MarshalIndent(ans, "", "\t"); err != nil {
+		return err
+	} else {
+		fmt.Printf("%s\n", string(b))
+	}
+	return nil
 }

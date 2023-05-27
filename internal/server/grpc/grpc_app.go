@@ -31,7 +31,10 @@ func (y *GRPCYavirtd) Ping(_ context.Context, _ *pb.Empty) (*pb.PingMessage, err
 // GetInfo .
 func (y *GRPCYavirtd) GetInfo(_ context.Context, _ *pb.Empty) (*pb.InfoMessage, error) {
 	log.Infof("[grpcserver] get host info")
-	info := y.service.Info()
+	info, err := y.service.Info()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return &pb.InfoMessage{
 		Id:        info.ID,
 		Cpu:       int64(info.CPU),
