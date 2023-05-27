@@ -1,6 +1,7 @@
 package guest
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/urfave/cli/v2"
@@ -8,6 +9,7 @@ import (
 	"github.com/projecteru2/yavirt/cmd/run"
 	"github.com/projecteru2/yavirt/configs"
 	"github.com/projecteru2/yavirt/internal/models"
+	yerrors "github.com/projecteru2/yavirt/pkg/errors"
 )
 
 func listFlags() []cli.Flag {
@@ -35,7 +37,7 @@ func list(c *cli.Context, _ run.Runtime) error {
 		}
 		guests, err = models.GetNodeGuests(nodename)
 	}
-	if err != nil {
+	if err != nil && !errors.Is(err, yerrors.ErrKeyNotExists) {
 		return err
 	}
 
