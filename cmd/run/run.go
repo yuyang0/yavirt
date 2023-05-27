@@ -30,7 +30,6 @@ type Runner func(*cli.Context, Runtime) error
 
 // Runtime .
 type Runtime struct {
-	SkipSetupHost bool
 	Host          *models.Host
 	Device        *device.Driver
 	CalicoDriver  *calinet.Driver
@@ -68,12 +67,7 @@ func Run(fn Runner) cli.ActionFunc {
 		if err := cfg.Prepare(c); err != nil {
 			return err
 		}
-		runtime.SkipSetupHost = c.Bool("skip-setup-host")
 		runtime.Guest = manager.New()
-		// when add host, we need skip host setup
-		if c.Command.FullName() == "host add" {
-			runtime.SkipSetupHost = true
-		}
 		if err := setup(); err != nil {
 			return errors.Trace(err)
 		}
@@ -85,10 +79,6 @@ func Run(fn Runner) cli.ActionFunc {
 func setup() error {
 	if err := store.Setup("etcd"); err != nil {
 		return errors.Trace(err)
-	}
-
-	if runtime.SkipSetupHost {
-		return nil
 	}
 
 	if err := setupHost(); err != nil {
