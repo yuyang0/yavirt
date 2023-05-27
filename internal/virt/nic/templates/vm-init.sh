@@ -25,3 +25,17 @@ EOF
 done
 
 systemctl restart systemd-networkd
+
+# prepare dns if neccessary
+dnsOutput=$(dig +short baidu.com)
+if [ -z "$dnsOutput" ]
+then
+    echo "Setting DNS..."
+    mkdir /etc/systemd/resolved.conf.d/
+    cat << EOF > /etc/systemd/resolved.conf.d/dns_servers.conf
+[Resolve]
+DNS=8.8.8.8 1.1.1.1
+EOF
+
+    systemctl restart systemd-resolved
+fi
