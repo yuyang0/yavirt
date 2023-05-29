@@ -33,7 +33,7 @@ func main() {
 			},
 			&cli.StringFlag{
 				Name:    "log-level",
-				Value:   "INFO",
+				Value:   "",
 				Usage:   "set log level",
 				EnvVars: []string{"ERU_YAVIRT_LOG_LEVEL"},
 			},
