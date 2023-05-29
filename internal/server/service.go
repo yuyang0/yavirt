@@ -55,9 +55,6 @@ func (svc *Service) setup() (err error) {
 		return errors.Trace(err)
 	}
 
-	// Start watching all local guests' changes.
-	svc.guest.StartWatch()
-
 	/*
 		if err := svc.ScheduleSnapshotCreate(); err != nil {
 			return errors.Trace(err)

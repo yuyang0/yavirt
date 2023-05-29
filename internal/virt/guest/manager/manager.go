@@ -105,10 +105,12 @@ type Manager struct {
 
 // New initializes a new Manager instance.
 func New() Manager {
-	return Manager{
+	mgr := Manager{
 		serializer: newSerializer(),
 		watchers:   NewWatchers(),
 	}
+	mgr.StartWatch()
+	return mgr
 }
 
 // Destroy destroys a guest.
