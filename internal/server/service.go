@@ -12,8 +12,8 @@ import (
 	"github.com/projecteru2/yavirt/configs"
 	"github.com/projecteru2/yavirt/internal/metrics"
 	"github.com/projecteru2/yavirt/internal/models"
+	"github.com/projecteru2/yavirt/internal/util"
 	"github.com/projecteru2/yavirt/internal/ver"
-	"github.com/projecteru2/yavirt/internal/virt"
 	"github.com/projecteru2/yavirt/internal/virt/guest/manager"
 	virtypes "github.com/projecteru2/yavirt/internal/virt/types"
 	"github.com/projecteru2/yavirt/internal/vnet"
@@ -100,7 +100,7 @@ func (svc *Service) batchCreateSnapshot() {
 			}
 
 			if err := svc.CreateSnapshot(
-				virt.NewContext(context.Background(), svc.caliHandler), req,
+				util.SetCalicoHandler(context.Background(), svc.caliHandler), req,
 			); err != nil {
 				log.ErrorStack(err)
 				metrics.IncrError()
@@ -120,7 +120,7 @@ func (svc *Service) batchCommitSnapshot() {
 	for _, g := range guests {
 		for _, volID := range g.VolIDs {
 			if err := svc.CommitSnapshotByDay(
-				virt.NewContext(context.Background(), svc.caliHandler),
+				util.SetCalicoHandler(context.Background(), svc.caliHandler),
 				g.ID,
 				volID,
 				configs.Conf.SnapshotRestorableDay,
@@ -133,8 +133,8 @@ func (svc *Service) batchCommitSnapshot() {
 }
 
 // VirtContext .
-func (svc *Service) VirtContext(ctx context.Context) virt.Context {
-	return virt.NewContext(ctx, svc.caliHandler)
+func (svc *Service) VirtContext(ctx context.Context) context.Context {
+	return util.SetCalicoHandler(ctx, svc.caliHandler)
 }
 
 // Ping .
@@ -158,7 +158,7 @@ func (svc *Service) Info() (*types.HostInfo, error) {
 }
 
 // GetGuest .
-func (svc *Service) GetGuest(ctx virt.Context, id string) (*types.Guest, error) {
+func (svc *Service) GetGuest(ctx context.Context, id string) (*types.Guest, error) {
 	vg, err := svc.guest.Load(ctx, id)
 	if err != nil {
 		log.ErrorStack(err)
@@ -169,7 +169,7 @@ func (svc *Service) GetGuest(ctx virt.Context, id string) (*types.Guest, error) 
 }
 
 // GetGuestIDList .
-func (svc *Service) GetGuestIDList(ctx virt.Context) ([]string, error) {
+func (svc *Service) GetGuestIDList(ctx context.Context) ([]string, error) {
 	ids, err := svc.guest.ListLocalIDs(ctx, true)
 	if err != nil {
 		log.ErrorStack(err)
@@ -180,7 +180,7 @@ func (svc *Service) GetGuestIDList(ctx virt.Context) ([]string, error) {
 }
 
 // GetGuestUUID .
-func (svc *Service) GetGuestUUID(ctx virt.Context, id string) (string, error) {
+func (svc *Service) GetGuestUUID(ctx context.Context, id string) (string, error) {
 	uuid, err := svc.guest.LoadUUID(ctx, id)
 	if err != nil {
 		log.ErrorStack(err)
@@ -191,7 +191,7 @@ func (svc *Service) GetGuestUUID(ctx virt.Context, id string) (string, error) {
 }
 
 // CreateGuest .
-func (svc *Service) CreateGuest(ctx virt.Context, opts virtypes.GuestCreateOption) (*types.Guest, error) {
+func (svc *Service) CreateGuest(ctx context.Context, opts virtypes.GuestCreateOption) (*types.Guest, error) {
 	vols := []*models.Volume{}
 	for _, v := range opts.Volumes {
 		vol, err := models.NewDataVolume(v.Mount, v.Capacity)
@@ -223,7 +223,7 @@ func (svc *Service) CreateGuest(ctx virt.Context, opts virtypes.GuestCreateOptio
 }
 
 // CaptureGuest .
-func (svc *Service) CaptureGuest(ctx virt.Context, req types.CaptureGuestReq) (uimg *models.UserImage, err error) {
+func (svc *Service) CaptureGuest(ctx context.Context, req types.CaptureGuestReq) (uimg *models.UserImage, err error) {
 	if uimg, err = svc.guest.Capture(ctx, req.VirtID(), req.User, req.Name, req.Overridden); err != nil {
 		log.ErrorStack(err)
 		metrics.IncrError()
@@ -232,7 +232,7 @@ func (svc *Service) CaptureGuest(ctx virt.Context, req types.CaptureGuestReq) (u
 }
 
 // ResizeGuest .
-func (svc *Service) ResizeGuest(ctx virt.Context, req types.ResizeGuestReq) (err error) {
+func (svc *Service) ResizeGuest(ctx context.Context, req types.ResizeGuestReq) (err error) {
 	vols := map[string]int64{}
 	for _, vol := range req.Volumes {
 		vols[vol.Mount] = vol.Capacity
@@ -245,7 +245,7 @@ func (svc *Service) ResizeGuest(ctx virt.Context, req types.ResizeGuestReq) (err
 }
 
 // ControlGuest .
-func (svc *Service) ControlGuest(ctx virt.Context, id, operation string, force bool) (err error) {
+func (svc *Service) ControlGuest(ctx context.Context, id, operation string, force bool) (err error) {
 	switch operation {
 	case types.OpStart:
 		err = svc.guest.Start(ctx, id)
@@ -265,7 +265,7 @@ func (svc *Service) ControlGuest(ctx virt.Context, id, operation string, force b
 }
 
 // ListSnapshot .
-func (svc *Service) ListSnapshot(ctx virt.Context, req types.ListSnapshotReq) (snaps types.Snapshots, err error) {
+func (svc *Service) ListSnapshot(ctx context.Context, req types.ListSnapshotReq) (snaps types.Snapshots, err error) {
 	volSnap, err := svc.guest.ListSnapshot(ctx, req.ID, req.VolID)
 	if err != nil {
 		log.ErrorStack(err)
@@ -287,7 +287,7 @@ func (svc *Service) ListSnapshot(ctx virt.Context, req types.ListSnapshotReq) (s
 }
 
 // CreateSnapshot .
-func (svc *Service) CreateSnapshot(ctx virt.Context, req types.CreateSnapshotReq) (err error) {
+func (svc *Service) CreateSnapshot(ctx context.Context, req types.CreateSnapshotReq) (err error) {
 	if err = svc.guest.CreateSnapshot(ctx, req.ID, req.VolID); err != nil {
 		log.ErrorStack(err)
 		metrics.IncrError()
@@ -296,7 +296,7 @@ func (svc *Service) CreateSnapshot(ctx virt.Context, req types.CreateSnapshotReq
 }
 
 // CommitSnapshot .
-func (svc *Service) CommitSnapshot(ctx virt.Context, req types.CommitSnapshotReq) (err error) {
+func (svc *Service) CommitSnapshot(ctx context.Context, req types.CommitSnapshotReq) (err error) {
 	if err = svc.guest.CommitSnapshot(ctx, req.ID, req.VolID, req.SnapID); err != nil {
 		log.ErrorStack(err)
 		metrics.IncrError()
@@ -305,7 +305,7 @@ func (svc *Service) CommitSnapshot(ctx virt.Context, req types.CommitSnapshotReq
 }
 
 // CommitSnapshotByDay .
-func (svc *Service) CommitSnapshotByDay(ctx virt.Context, id, volID string, day int) (err error) {
+func (svc *Service) CommitSnapshotByDay(ctx context.Context, id, volID string, day int) (err error) {
 	if err = svc.guest.CommitSnapshotByDay(ctx, id, volID, day); err != nil {
 		log.ErrorStack(err)
 		metrics.IncrError()
@@ -314,7 +314,7 @@ func (svc *Service) CommitSnapshotByDay(ctx virt.Context, id, volID string, day 
 }
 
 // RestoreSnapshot .
-func (svc *Service) RestoreSnapshot(ctx virt.Context, req types.RestoreSnapshotReq) (err error) {
+func (svc *Service) RestoreSnapshot(ctx context.Context, req types.RestoreSnapshotReq) (err error) {
 	if err = svc.guest.RestoreSnapshot(ctx, req.ID, req.VolID, req.SnapID); err != nil {
 		log.ErrorStack(err)
 		metrics.IncrError()
@@ -323,7 +323,7 @@ func (svc *Service) RestoreSnapshot(ctx virt.Context, req types.RestoreSnapshotR
 }
 
 // ConnectNetwork .
-func (svc *Service) ConnectNetwork(ctx virt.Context, id, network, ipv4 string) (cidr string, err error) {
+func (svc *Service) ConnectNetwork(ctx context.Context, id, network, ipv4 string) (cidr string, err error) {
 	if cidr, err = svc.guest.ConnectExtraNetwork(ctx, id, network, ipv4); err != nil {
 		log.ErrorStack(err)
 		metrics.IncrError()
@@ -332,7 +332,7 @@ func (svc *Service) ConnectNetwork(ctx virt.Context, id, network, ipv4 string) (
 }
 
 // DisconnectNetwork .
-func (svc *Service) DisconnectNetwork(ctx virt.Context, id, network string) (err error) {
+func (svc *Service) DisconnectNetwork(ctx context.Context, id, network string) (err error) {
 	if err = svc.guest.DisconnectExtraNetwork(ctx, id, network); err != nil {
 		log.ErrorStack(err)
 		metrics.IncrError()
@@ -341,7 +341,7 @@ func (svc *Service) DisconnectNetwork(ctx virt.Context, id, network string) (err
 }
 
 // NetworkList .
-func (svc *Service) NetworkList(ctx virt.Context, drivers []string) ([]*types.Network, error) {
+func (svc *Service) NetworkList(ctx context.Context, drivers []string) ([]*types.Network, error) {
 	drv := map[string]struct{}{}
 	for _, driver := range drivers {
 		drv[driver] = struct{}{}
@@ -354,7 +354,7 @@ func (svc *Service) NetworkList(ctx virt.Context, drivers []string) ([]*types.Ne
 			break
 		}
 		for _, poolName := range svc.caliHandler.PoolNames() {
-			subnet, err := svc.caliHandler.GetIPPoolCidr(ctx.Context, poolName)
+			subnet, err := svc.caliHandler.GetIPPoolCidr(ctx, poolName)
 			if err != nil {
 				log.ErrorStack(err)
 				metrics.IncrError()
@@ -382,7 +382,7 @@ func (svc *Service) NetworkList(ctx virt.Context, drivers []string) ([]*types.Ne
 }
 
 // AttachGuest .
-func (svc *Service) AttachGuest(ctx virt.Context, id string, stream io.ReadWriteCloser, flags virtypes.OpenConsoleFlags) (err error) {
+func (svc *Service) AttachGuest(ctx context.Context, id string, stream io.ReadWriteCloser, flags virtypes.OpenConsoleFlags) (err error) {
 	if err = svc.guest.AttachConsole(ctx, id, stream, flags); err != nil {
 		log.ErrorStack(err)
 		metrics.IncrError()
@@ -391,7 +391,7 @@ func (svc *Service) AttachGuest(ctx virt.Context, id string, stream io.ReadWrite
 }
 
 // ResizeConsoleWindow .
-func (svc *Service) ResizeConsoleWindow(ctx virt.Context, id string, height, width uint) (err error) {
+func (svc *Service) ResizeConsoleWindow(ctx context.Context, id string, height, width uint) (err error) {
 	if err = svc.guest.ResizeConsoleWindow(ctx, id, height, width); err != nil {
 		log.ErrorStack(err)
 		metrics.IncrError()
@@ -400,7 +400,7 @@ func (svc *Service) ResizeConsoleWindow(ctx virt.Context, id string, height, wid
 }
 
 // ExecuteGuest .
-func (svc *Service) ExecuteGuest(ctx virt.Context, id string, commands []string) (*types.ExecuteGuestMessage, error) {
+func (svc *Service) ExecuteGuest(ctx context.Context, id string, commands []string) (*types.ExecuteGuestMessage, error) {
 	stdout, exitCode, pid, err := svc.guest.ExecuteCommand(ctx, id, commands)
 	if err != nil {
 		log.WarnStack(err)
@@ -426,7 +426,7 @@ func (svc *Service) ExecExitCode(id string, pid int) (int, error) {
 }
 
 // Cat .
-func (svc *Service) Cat(ctx virt.Context, id, path string, dest io.WriteCloser) (err error) {
+func (svc *Service) Cat(ctx context.Context, id, path string, dest io.WriteCloser) (err error) {
 	if err = svc.guest.Cat(ctx, id, path, dest); err != nil {
 		log.ErrorStack(err)
 		metrics.IncrError()
@@ -435,7 +435,7 @@ func (svc *Service) Cat(ctx virt.Context, id, path string, dest io.WriteCloser) 
 }
 
 // CopyToGuest .
-func (svc *Service) CopyToGuest(ctx virt.Context, id, dest string, content chan []byte, override bool) (err error) {
+func (svc *Service) CopyToGuest(ctx context.Context, id, dest string, content chan []byte, override bool) (err error) {
 	if err = svc.guest.CopyToGuest(ctx, id, dest, content, override); err != nil {
 		log.ErrorStack(err)
 		metrics.IncrError()
@@ -444,7 +444,7 @@ func (svc *Service) CopyToGuest(ctx virt.Context, id, dest string, content chan 
 }
 
 // Log .
-func (svc *Service) Log(ctx virt.Context, id, logPath string, n int, dest io.WriteCloser) (err error) {
+func (svc *Service) Log(ctx context.Context, id, logPath string, n int, dest io.WriteCloser) (err error) {
 	if err = svc.guest.Log(ctx, id, logPath, n, dest); err != nil {
 		log.ErrorStack(err)
 		metrics.IncrError()
@@ -453,7 +453,7 @@ func (svc *Service) Log(ctx virt.Context, id, logPath string, n int, dest io.Wri
 }
 
 // Wait .
-func (svc *Service) Wait(ctx virt.Context, id string, block bool) (msg string, code int, err error) {
+func (svc *Service) Wait(ctx context.Context, id string, block bool) (msg string, code int, err error) {
 	err = svc.guest.Stop(ctx, id, !block)
 	if err != nil {
 		log.ErrorStack(err)
@@ -467,12 +467,12 @@ func (svc *Service) Wait(ctx virt.Context, id string, block bool) (msg string, c
 	return
 }
 
-func (svc *Service) PushImage(_ virt.Context, _, _ string) (err error) {
+func (svc *Service) PushImage(_ context.Context, _, _ string) (err error) {
 	// todo
 	return
 }
 
-func (svc *Service) RemoveImage(ctx virt.Context, imageName, user string, force, prune bool) (removed []string, err error) {
+func (svc *Service) RemoveImage(ctx context.Context, imageName, user string, force, prune bool) (removed []string, err error) {
 	if removed, err = svc.guest.RemoveImage(ctx, imageName, user, force, prune); err != nil {
 		log.ErrorStack(err)
 		metrics.IncrError()
@@ -480,7 +480,7 @@ func (svc *Service) RemoveImage(ctx virt.Context, imageName, user string, force,
 	return
 }
 
-func (svc *Service) ListImage(ctx virt.Context, filter string) ([]types.SysImage, error) {
+func (svc *Service) ListImage(ctx context.Context, filter string) ([]types.SysImage, error) {
 	imgs, err := svc.guest.ListImage(ctx, filter)
 	if err != nil {
 		log.ErrorStack(err)
@@ -501,12 +501,12 @@ func (svc *Service) ListImage(ctx virt.Context, filter string) ([]types.SysImage
 	return images, err
 }
 
-func (svc *Service) PullImage(virt.Context, string, bool) (msg string, err error) {
+func (svc *Service) PullImage(context.Context, string, bool) (msg string, err error) {
 	// todo
 	return
 }
 
-func (svc *Service) DigestImage(ctx virt.Context, imageName string, local bool) (digest []string, err error) {
+func (svc *Service) DigestImage(ctx context.Context, imageName string, local bool) (digest []string, err error) {
 	if digest, err = svc.guest.DigestImage(ctx, imageName, local); err != nil {
 		log.ErrorStack(err)
 		metrics.IncrError()
@@ -514,6 +514,6 @@ func (svc *Service) DigestImage(ctx virt.Context, imageName string, local bool) 
 	return
 }
 
-func (svc *Service) WatchGuestEvents(virt.Context) (*manager.Watcher, error) {
+func (svc *Service) WatchGuestEvents(context.Context) (*manager.Watcher, error) {
 	return svc.guest.NewWatcher()
 }

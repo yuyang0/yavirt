@@ -1,8 +1,10 @@
 package domain
 
 import (
+	"context"
 	"encoding/xml"
 	"path/filepath"
+	"strings"
 	"time"
 
 	_ "embed"
@@ -41,8 +43,8 @@ type Domain interface { //nolint
 	AmplifyVolume(filepath string, cap uint64) error
 	Define() error
 	Undefine() error
-	Shutdown(force bool) error
-	Boot() error
+	Shutdown(ctx context.Context, force bool) error
+	Boot(ctx context.Context) error
 	Suspend() error
 	Resume() error
 	SetSpec(cpu int, mem int64) error
@@ -102,7 +104,7 @@ func (d *VirtDomain) Define() error {
 }
 
 // Boot .
-func (d *VirtDomain) Boot() error {
+func (d *VirtDomain) Boot(ctx context.Context) error {
 	dom, err := d.lookup()
 	if err != nil {
 		return errors.Trace(err)
@@ -111,31 +113,36 @@ func (d *VirtDomain) Boot() error {
 
 	var expState = libvirt.DomainShutoff
 	for i := 0; ; i++ {
-		time.Sleep(time.Second * time.Duration(i))
-		i %= 5
-
-		switch st, err := dom.GetState(); {
-		case err != nil:
-			return errors.Trace(err)
-
-		case st == libvirt.DomainRunning:
-			return nil
-
-		case st == expState:
-			// Actually, dom.Create() means launch a defined domain.
-			if err := dom.Create(); err != nil {
-				return errors.Trace(err)
-			}
-			continue
-
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
 		default:
-			return types.NewDomainStatesErr(st, expState)
+			time.Sleep(time.Second * time.Duration(i))
+			i %= 5
+
+			switch st, err := dom.GetState(); {
+			case err != nil:
+				return errors.Trace(err)
+
+			case st == libvirt.DomainRunning:
+				return nil
+
+			case st == expState:
+				// Actually, dom.Create() means launch a defined domain.
+				if err := dom.Create(); err != nil {
+					return errors.Trace(err)
+				}
+				continue
+
+			default:
+				return types.NewDomainStatesErr(st, expState)
+			}
 		}
 	}
 }
 
 // Shutdown .
-func (d *VirtDomain) Shutdown(force bool) error {
+func (d *VirtDomain) Shutdown(ctx context.Context, force bool) error {
 	dom, err := d.lookup()
 	if err != nil {
 		return errors.Trace(err)
@@ -150,30 +157,35 @@ func (d *VirtDomain) Shutdown(force bool) error {
 	}
 
 	for i := 0; ; i++ {
-		time.Sleep(time.Second * time.Duration(i))
-		i %= 5
-
-		switch st, err := dom.GetState(); {
-		case err != nil:
-			return errors.Trace(err)
-
-		case st == libvirt.DomainShutoff:
-			return nil
-
-		case st == libvirt.DomainShutting:
-			// It's shutting now, waiting to be shutoff.
-			continue
-
-		case st == libvirt.DomainPaused:
-			fallthrough
-		case st == expState:
-			if err := shut(dom); err != nil {
-				return errors.Trace(err)
-			}
-			continue
-
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
 		default:
-			return types.NewDomainStatesErr(st, expState)
+			time.Sleep(time.Second * time.Duration(i))
+			i %= 5
+
+			switch st, err := dom.GetState(); {
+			case err != nil:
+				return errors.Trace(err)
+
+			case st == libvirt.DomainShutoff:
+				return nil
+
+			case st == libvirt.DomainShutting:
+				// It's shutting now, waiting to be shutoff.
+				continue
+
+			case st == libvirt.DomainPaused:
+				fallthrough
+			case st == expState:
+				if err := shut(dom); err != nil {
+					return errors.Trace(err)
+				}
+				continue
+
+			default:
+				return types.NewDomainStatesErr(st, expState)
+			}
 		}
 	}
 }

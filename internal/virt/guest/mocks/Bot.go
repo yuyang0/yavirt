@@ -77,13 +77,13 @@ func (_m *Bot) BindExtraNetwork() error {
 	return r0
 }
 
-// Boot provides a mock function with given fields:
-func (_m *Bot) Boot() error {
-	ret := _m.Called()
+// Boot provides a mock function with given fields: ctx
+func (_m *Bot) Boot(ctx context.Context) error {
+	ret := _m.Called(ctx)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func() error); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(context.Context) error); ok {
+		r0 = rf(ctx)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -463,13 +463,13 @@ func (_m *Bot) Resume() error {
 	return r0
 }
 
-// Shutdown provides a mock function with given fields: force
-func (_m *Bot) Shutdown(force bool) error {
-	ret := _m.Called(force)
+// Shutdown provides a mock function with given fields: ctx, force
+func (_m *Bot) Shutdown(ctx context.Context, force bool) error {
+	ret := _m.Called(ctx, force)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(bool) error); ok {
-		r0 = rf(force)
+	if rf, ok := ret.Get(0).(func(context.Context, bool) error); ok {
+		r0 = rf(ctx, force)
 	} else {
 		r0 = ret.Error(0)
 	}

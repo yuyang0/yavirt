@@ -61,9 +61,11 @@ func main() {
 				Usage:   "change hostname",
 				EnvVars: []string{"ERU_HOSTNAME", "HOSTNAME"},
 			},
-			&cli.BoolFlag{
-				Name:  "skip-setup-host",
-				Value: false,
+			&cli.IntFlag{
+				Name:    "timeout",
+				Value:   300,
+				Usage:   "command timeout",
+				EnvVars: []string{"ERU_YAVIRT_CMD_TIMEOUT"},
 			},
 		},
 		Commands: []*cli.Command{
@@ -85,7 +87,7 @@ func main() {
 	}
 }
 
-func info(c *cli.Context, runtime run.Runtime) (err error) {
+func info(c *cli.Context, _ run.Runtime) (err error) {
 	cfg := &configs.Conf
 
 	if err := cfg.Load([]string{c.String("config")}); err != nil {
@@ -109,10 +111,10 @@ func info(c *cli.Context, runtime run.Runtime) (err error) {
 	for name, res := range info.Resources {
 		ans[name] = string(res)
 	}
-	if b, err := json.MarshalIndent(ans, "", "\t"); err != nil {
+	b, err := json.MarshalIndent(ans, "", "\t")
+	if err != nil {
 		return err
-	} else {
-		fmt.Printf("%s\n", string(b))
 	}
+	fmt.Printf("%s\n", string(b))
 	return nil
 }

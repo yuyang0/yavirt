@@ -57,6 +57,9 @@ func TestCreate_WithExtVolumes(t *testing.T) {
 }
 
 func TestLifecycle(t *testing.T) {
+	ctx, cancelFn := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancelFn()
+
 	var guest, bot = newMockedGuest(t)
 	defer bot.AssertExpectations(t)
 
@@ -76,16 +79,16 @@ func TestLifecycle(t *testing.T) {
 	assert.Equal(t, models.StatusCreating, guest.Status)
 	guest.rangeVolumes(checkVolsStatus(t, models.StatusCreating))
 
-	bot.On("Boot").Return(nil).Once()
+	bot.On("Boot", ctx).Return(nil).Once()
 	bot.On("Close").Return(nil).Once()
 	bot.On("GetState").Return(libvirt.DomainShutoff, nil).Once()
-	assert.NilErr(t, guest.Start())
+	assert.NilErr(t, guest.Start(ctx))
 	assert.Equal(t, models.StatusRunning, guest.Status)
 	guest.rangeVolumes(checkVolsStatus(t, models.StatusRunning))
 
-	bot.On("Shutdown", mock.Anything).Return(nil).Once()
+	bot.On("Shutdown", ctx, mock.Anything).Return(nil).Once()
 	bot.On("Close").Return(nil).Once()
-	assert.NilErr(t, guest.Stop(true))
+	assert.NilErr(t, guest.Stop(ctx, true))
 	assert.Equal(t, models.StatusStopped, guest.Status)
 	guest.rangeVolumes(checkVolsStatus(t, models.StatusStopped))
 
@@ -101,16 +104,16 @@ func TestLifecycle(t *testing.T) {
 	assert.Equal(t, models.StatusStopped, guest.Status)
 	guest.rangeVolumes(checkVolsStatus(t, models.StatusStopped))
 
-	bot.On("Boot").Return(nil).Once()
+	bot.On("Boot", ctx).Return(nil).Once()
 	bot.On("Close").Return(nil).Once()
 	bot.On("GetState").Return(libvirt.DomainShutoff, nil).Once()
-	assert.NilErr(t, guest.Start())
+	assert.NilErr(t, guest.Start(ctx))
 	assert.Equal(t, models.StatusRunning, guest.Status)
 	guest.rangeVolumes(checkVolsStatus(t, models.StatusRunning))
 
-	bot.On("Shutdown", mock.Anything).Return(nil).Once()
+	bot.On("Shutdown", ctx, mock.Anything).Return(nil).Once()
 	bot.On("Close").Return(nil).Once()
-	assert.NilErr(t, guest.Stop(true))
+	assert.NilErr(t, guest.Stop(ctx, true))
 	assert.Equal(t, models.StatusStopped, guest.Status)
 	guest.rangeVolumes(checkVolsStatus(t, models.StatusStopped))
 
@@ -122,7 +125,7 @@ func TestLifecycle(t *testing.T) {
 
 	meta.On("NewMutex", mock.Anything).Return(mutex, nil).Once()
 	meta.On("Delete", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
-	done, err := guest.Destroy(false)
+	done, err := guest.Destroy(ctx, false)
 	assert.NilErr(t, err)
 	assert.NilErr(t, <-done)
 }
@@ -135,13 +138,16 @@ func checkVolsStatus(t *testing.T, expSt string) func(int, volume.Virt) bool {
 }
 
 func TestLifecycle_InvalidStatus(t *testing.T) {
+	ctx, cancelFn := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancelFn()
+
 	var guest, bot = newMockedGuest(t)
 	defer bot.AssertExpectations(t)
 
 	guest.Status = models.StatusDestroyed
 	assert.Err(t, guest.Create())
-	assert.Err(t, guest.Stop(false))
-	assert.Err(t, guest.Start())
+	assert.Err(t, guest.Stop(ctx, false))
+	assert.Err(t, guest.Start(ctx))
 
 	var meta, metaCancel = storemocks.Mock()
 	defer metaCancel()
@@ -152,7 +158,7 @@ func TestLifecycle_InvalidStatus(t *testing.T) {
 	assert.Err(t, err)
 
 	guest.Status = models.StatusResizing
-	done, err := guest.Destroy(false)
+	done, err := guest.Destroy(ctx, false)
 	assert.Err(t, err)
 	assert.Nil(t, done)
 
@@ -161,6 +167,9 @@ func TestLifecycle_InvalidStatus(t *testing.T) {
 }
 
 func TestSyncState(t *testing.T) {
+	ctx, cancelFn := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancelFn()
+
 	var guest, bot = newMockedGuest(t)
 	defer bot.AssertExpectations(t)
 
@@ -174,7 +183,7 @@ func TestSyncState(t *testing.T) {
 	bot.On("Close").Return(nil).Once()
 	bot.On("Trylock").Return(nil)
 	bot.On("Unlock").Return()
-	assert.NilErr(t, guest.SyncState())
+	assert.NilErr(t, guest.SyncState(ctx))
 
 	guest.Status = models.StatusDestroying
 	guest.rangeVolumes(func(_ int, v volume.Virt) bool {
@@ -190,7 +199,7 @@ func TestSyncState(t *testing.T) {
 	bot.On("Close").Return(nil).Once()
 	meta.On("NewMutex", mock.Anything).Return(mutex, nil).Once()
 	meta.On("Delete", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
-	assert.NilErr(t, guest.SyncState())
+	assert.NilErr(t, guest.SyncState(ctx))
 
 	guest.Status = models.StatusStopping
 	guest.rangeVolumes(func(_ int, v volume.Virt) bool {
@@ -198,9 +207,9 @@ func TestSyncState(t *testing.T) {
 		mod.Status = models.StatusStopping
 		return true
 	})
-	bot.On("Shutdown", mock.Anything).Return(nil).Once()
+	bot.On("Shutdown", ctx, mock.Anything).Return(nil).Once()
 	bot.On("Close").Return(nil).Once()
-	assert.NilErr(t, guest.SyncState())
+	assert.NilErr(t, guest.SyncState(ctx))
 
 	guest.Status = models.StatusStarting
 	guest.rangeVolumes(func(_ int, v volume.Virt) bool {
@@ -208,13 +217,16 @@ func TestSyncState(t *testing.T) {
 		mod.Status = models.StatusStarting
 		return true
 	})
-	bot.On("Boot").Return(nil).Once()
+	bot.On("Boot", ctx).Return(nil).Once()
 	bot.On("Close").Return(nil).Once()
 	bot.On("GetState").Return(libvirt.DomainShutoff, nil).Once()
-	assert.NilErr(t, guest.SyncState())
+	assert.NilErr(t, guest.SyncState(ctx))
 }
 
 func TestForceDestroy(t *testing.T) {
+	ctx, cancelFn := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancelFn()
+
 	guest, bot := newMockedGuest(t)
 	defer bot.AssertExpectations(t)
 
@@ -229,13 +241,13 @@ func TestForceDestroy(t *testing.T) {
 	meta.On("Delete", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 
 	guest.Status = models.StatusRunning
-	bot.On("Shutdown", true).Return(nil).Once()
+	bot.On("Shutdown", ctx, true).Return(nil).Once()
 	bot.On("Undefine").Return(nil).Once()
 	bot.On("Close").Return(nil)
 	bot.On("Trylock").Return(nil)
 	bot.On("Unlock").Return()
 
-	done, err := guest.Destroy(true)
+	done, err := guest.Destroy(ctx, true)
 	assert.NilErr(t, err)
 	assert.NilErr(t, <-done)
 }
@@ -252,6 +264,9 @@ func mockMutex() *utilmocks.Locker {
 }
 
 func TestSyncStateSkipsRunning(t *testing.T) {
+	ctx, cancelFn := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancelFn()
+
 	var guest, bot = newMockedGuest(t)
 	defer bot.AssertExpectations(t)
 
@@ -261,7 +276,7 @@ func TestSyncStateSkipsRunning(t *testing.T) {
 	bot.On("Unlock").Return()
 
 	guest.Status = models.StatusRunning
-	assert.NilErr(t, guest.SyncState())
+	assert.NilErr(t, guest.SyncState(ctx))
 }
 
 func TestAmplifyOrigVols_HostDirMount(t *testing.T) {

@@ -9,7 +9,6 @@ import (
 	"github.com/projecteru2/libyavirt/types"
 	"github.com/projecteru2/yavirt/internal/models"
 	"github.com/projecteru2/yavirt/internal/server"
-	"github.com/projecteru2/yavirt/internal/virt"
 	"github.com/projecteru2/yavirt/pkg/errors"
 )
 
@@ -52,7 +51,7 @@ func (s *apiServer) host() *models.Host { //nolint
 }
 
 func (s *apiServer) Info(c *gin.Context) {
-	s.dispatch(c, nil, func(ctx virt.Context) (any, error) {
+	s.dispatch(c, nil, func(ctx context.Context) (any, error) {
 		return s.service.Info()
 	})
 }
@@ -61,13 +60,13 @@ func (s *apiServer) Ping(c *gin.Context) {
 	c.JSON(http.StatusOK, s.service.Ping())
 }
 
-func (s *apiServer) dispatchMsg(c *gin.Context, req any, fn func(virt.Context) error) {
-	s.dispatch(c, req, func(ctx virt.Context) (any, error) {
+func (s *apiServer) dispatchMsg(c *gin.Context, req any, fn func(context.Context) error) {
+	s.dispatch(c, req, func(ctx context.Context) (any, error) {
 		return nil, fn(ctx)
 	})
 }
 
-type operate func(virt.Context) (any, error)
+type operate func(context.Context) (any, error)
 
 func (s *apiServer) dispatch(c *gin.Context, req any, fn operate) {
 	if req != nil {
@@ -117,6 +116,6 @@ func (s *apiServer) renderErr(c *gin.Context, err error) {
 	c.JSON(http.StatusInternalServerError, err.Error())
 }
 
-func (s *apiServer) virtContext() virt.Context {
+func (s *apiServer) virtContext() context.Context {
 	return s.service.VirtContext(context.Background())
 }

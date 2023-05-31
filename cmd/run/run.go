@@ -10,7 +10,7 @@ import (
 
 	"github.com/projecteru2/yavirt/configs"
 	"github.com/projecteru2/yavirt/internal/models"
-	"github.com/projecteru2/yavirt/internal/virt"
+	"github.com/projecteru2/yavirt/internal/util"
 	"github.com/projecteru2/yavirt/internal/virt/guest/manager"
 	"github.com/projecteru2/yavirt/internal/vnet"
 	"github.com/projecteru2/yavirt/internal/vnet/calico"
@@ -19,6 +19,7 @@ import (
 	calihandler "github.com/projecteru2/yavirt/internal/vnet/handler/calico"
 	"github.com/projecteru2/yavirt/pkg/errors"
 	"github.com/projecteru2/yavirt/pkg/idgen"
+	"github.com/projecteru2/yavirt/pkg/log"
 	"github.com/projecteru2/yavirt/pkg/netx"
 	"github.com/projecteru2/yavirt/pkg/store"
 )
@@ -30,6 +31,8 @@ type Runner func(*cli.Context, Runtime) error
 
 // Runtime .
 type Runtime struct {
+	Ctx           context.Context
+	CancelFn      context.CancelFunc
 	Host          *models.Host
 	Device        *device.Driver
 	CalicoDriver  *calinet.Driver
@@ -38,8 +41,8 @@ type Runtime struct {
 }
 
 // VirtContext .
-func (r Runtime) VirtContext() virt.Context {
-	return virt.NewContext(context.Background(), r.CalicoHandler)
+func (r Runtime) VirtContext() context.Context {
+	return util.SetCalicoHandler(r.Ctx, r.CalicoHandler)
 }
 
 // ConvDecimal .
@@ -67,6 +70,7 @@ func Run(fn Runner) cli.ActionFunc {
 		if err := cfg.Prepare(c); err != nil {
 			return err
 		}
+		runtime.Ctx, runtime.CancelFn = context.WithTimeout(context.Background(), time.Duration(c.Int("timeout"))*time.Second)
 		runtime.Guest = manager.New()
 		if err := setup(); err != nil {
 			return errors.Trace(err)
@@ -77,6 +81,10 @@ func Run(fn Runner) cli.ActionFunc {
 }
 
 func setup() error {
+	// always send log to stdout
+	if _, err := log.Setup(configs.Conf.LogLevel, "", configs.Conf.LogSentry); err != nil {
+		return err
+	}
 	if err := store.Setup("etcd"); err != nil {
 		return errors.Trace(err)
 	}

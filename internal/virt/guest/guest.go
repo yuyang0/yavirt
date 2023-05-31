@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/projecteru2/yavirt/internal/models"
-	"github.com/projecteru2/yavirt/internal/virt"
 	"github.com/projecteru2/yavirt/internal/virt/types"
 	"github.com/projecteru2/yavirt/internal/virt/volume"
 	"github.com/projecteru2/yavirt/pkg/errors"
@@ -22,13 +21,13 @@ import (
 type Guest struct {
 	*models.Guest
 
-	ctx virt.Context
+	ctx context.Context
 
 	newBot func(*Guest) (Bot, error)
 }
 
 // New initializes a new Guest.
-func New(ctx virt.Context, g *models.Guest) *Guest {
+func New(ctx context.Context, g *models.Guest) *Guest {
 	return &Guest{
 		Guest:  g,
 		ctx:    ctx,
@@ -37,7 +36,7 @@ func New(ctx virt.Context, g *models.Guest) *Guest {
 }
 
 // ListLocalIDs lists all local guest domain names.
-func ListLocalIDs(virt.Context) ([]string, error) {
+func ListLocalIDs(context.Context) ([]string, error) {
 	virt, err := connectSystemLibvirt()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -72,18 +71,18 @@ func (g *Guest) Load() error {
 }
 
 // SyncState .
-func (g *Guest) SyncState() error {
+func (g *Guest) SyncState(ctx context.Context) error {
 	switch g.Status {
 	case models.StatusDestroying:
 		return g.ProcessDestroy()
 
 	case models.StatusStopping:
-		return g.stop(true)
+		return g.stop(ctx, true)
 
 	case models.StatusRunning:
 		fallthrough
 	case models.StatusStarting:
-		return g.start()
+		return g.start(ctx)
 
 	case models.StatusCreating:
 		return g.create()
@@ -95,14 +94,15 @@ func (g *Guest) SyncState() error {
 }
 
 // Start .
-func (g *Guest) Start() error {
-	return utils.Invoke([]func() error{
-		g.ForwardStarting,
-		g.start,
-	})
+func (g *Guest) Start(ctx context.Context) error {
+	if err := g.ForwardStarting(); err != nil {
+		return err
+	}
+	defer log.Debugf("exit g.Start")
+	return g.start(ctx)
 }
 
-func (g *Guest) start() error {
+func (g *Guest) start(ctx context.Context) error {
 	return g.botOperate(func(bot Bot) error {
 		switch st, err := bot.GetState(); {
 		case err != nil:
@@ -110,12 +110,16 @@ func (g *Guest) start() error {
 		case st == libvirt.DomainRunning:
 			return nil
 		}
-
-		return utils.Invoke([]func() error{
-			bot.Boot,
-			g.joinEthernet,
-			g.ForwardRunning,
-		})
+		log.Debugf("Entering Boot")
+		if err := bot.Boot(ctx); err != nil {
+			return err
+		}
+		log.Debugf("Entering joinEthernet")
+		if err := g.joinEthernet(); err != nil {
+			return err
+		}
+		log.Debugf("Entering forwardRunning")
+		return g.ForwardRunning()
 	})
 }
 
@@ -454,16 +458,16 @@ func (g *Guest) create() error {
 }
 
 // Stop .
-func (g *Guest) Stop(force bool) error {
+func (g *Guest) Stop(ctx context.Context, force bool) error {
 	if err := g.ForwardStopping(); !force && err != nil {
 		return errors.Trace(err)
 	}
-	return g.stop(force)
+	return g.stop(ctx, force)
 }
 
-func (g *Guest) stop(force bool) error {
+func (g *Guest) stop(ctx context.Context, force bool) error {
 	return g.botOperate(func(bot Bot) error {
-		if err := bot.Shutdown(force); err != nil {
+		if err := bot.Shutdown(ctx, force); err != nil {
 			return errors.Trace(err)
 		}
 		return g.ForwardStopped(force)
@@ -505,9 +509,9 @@ func (g *Guest) resume() error {
 }
 
 // Destroy .
-func (g *Guest) Destroy(force bool) (<-chan error, error) {
+func (g *Guest) Destroy(ctx context.Context, force bool) (<-chan error, error) {
 	if force {
-		if err := g.stop(true); err != nil && !errors.IsDomainNotExistsErr(err) {
+		if err := g.stop(ctx, true); err != nil && !errors.IsDomainNotExistsErr(err) {
 			return nil, errors.Trace(err)
 		}
 	}

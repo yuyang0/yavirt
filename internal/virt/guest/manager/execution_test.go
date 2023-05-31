@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/projecteru2/yavirt/internal/virt"
+	"github.com/projecteru2/yavirt/internal/util"
 	"github.com/projecteru2/yavirt/pkg/test/assert"
 )
 
@@ -68,9 +68,9 @@ func testTask(t *testing.T) *task {
 		id:   "test",
 		op:   destroyOp,
 		done: make(chan struct{}),
-		ctx:  virt.NewContext(context.Background(), nil),
+		ctx:  util.SetCalicoHandler(context.Background(), nil),
 	}
-	task.do = func(ctx virt.Context) (interface{}, error) {
+	task.do = func(ctx context.Context) (interface{}, error) {
 		return "successful", nil
 	}
 	return task

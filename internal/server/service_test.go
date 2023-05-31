@@ -6,7 +6,7 @@ import (
 
 	"github.com/projecteru2/libyavirt/types"
 	"github.com/projecteru2/yavirt/internal/models"
-	"github.com/projecteru2/yavirt/internal/virt"
+	"github.com/projecteru2/yavirt/internal/util"
 	vg "github.com/projecteru2/yavirt/internal/virt/guest"
 	managerocks "github.com/projecteru2/yavirt/internal/virt/guest/manager/mocks"
 	virtypes "github.com/projecteru2/yavirt/internal/virt/types"
@@ -91,8 +91,8 @@ func testVirtGuest(t *testing.T) *vg.Guest {
 	return vg.New(testVirtContext(t), mg)
 }
 
-func testVirtContext(t *testing.T) virt.Context {
-	return virt.NewContext(context.Background(), nil)
+func testVirtContext(t *testing.T) context.Context {
+	return util.SetCalicoHandler(context.Background(), nil)
 }
 
 func testService(t *testing.T) *Service {

@@ -1,6 +1,7 @@
 package manager
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -12,7 +13,6 @@ import (
 	"github.com/projecteru2/yavirt/configs"
 	"github.com/projecteru2/yavirt/internal/meta"
 	"github.com/projecteru2/yavirt/internal/models"
-	"github.com/projecteru2/yavirt/internal/virt"
 	"github.com/projecteru2/yavirt/internal/virt/guest"
 	"github.com/projecteru2/yavirt/internal/virt/types"
 	"github.com/projecteru2/yavirt/pkg/errors"
@@ -41,60 +41,60 @@ type Watchable interface {
 
 // Creatable wraps a group of methods about creation.
 type Creatable interface {
-	Create(ctx virt.Context, opts types.GuestCreateOption, host *models.Host, vols []*models.Volume) (vg *guest.Guest, err error)
+	Create(ctx context.Context, opts types.GuestCreateOption, host *models.Host, vols []*models.Volume) (vg *guest.Guest, err error)
 }
 
 // Networkable wraps a group of networking methods.
 type Networkable interface {
-	ConnectExtraNetwork(ctx virt.Context, id, network, ipv4 string) (string, error)
-	DisconnectExtraNetwork(ctx virt.Context, id, network string) error
+	ConnectExtraNetwork(ctx context.Context, id, network, ipv4 string) (string, error)
+	DisconnectExtraNetwork(ctx context.Context, id, network string) error
 }
 
 // Executable wraps a group of executable methods.
 type Executable interface {
-	AttachConsole(ctx virt.Context, id string, stream io.ReadWriteCloser, flags types.OpenConsoleFlags) (err error)
-	ResizeConsoleWindow(ctx virt.Context, id string, height, width uint) (err error)
-	ExecuteCommand(ctx virt.Context, id string, commands []string) (output []byte, exitCode, pid int, err error)
-	Cat(ctx virt.Context, id, path string, dest io.WriteCloser) error
-	CopyToGuest(ctx virt.Context, id, dest string, content chan []byte, override bool) error
-	Log(ctx virt.Context, id, logPath string, n int, dest io.WriteCloser) error
+	AttachConsole(ctx context.Context, id string, stream io.ReadWriteCloser, flags types.OpenConsoleFlags) (err error)
+	ResizeConsoleWindow(ctx context.Context, id string, height, width uint) (err error)
+	ExecuteCommand(ctx context.Context, id string, commands []string) (output []byte, exitCode, pid int, err error)
+	Cat(ctx context.Context, id, path string, dest io.WriteCloser) error
+	CopyToGuest(ctx context.Context, id, dest string, content chan []byte, override bool) error
+	Log(ctx context.Context, id, logPath string, n int, dest io.WriteCloser) error
 }
 
 // Controllable wraps a group of controlling methods.
 type Controllable interface {
-	Resize(ctx virt.Context, id string, cpu int, mem int64, vols map[string]int64) error
-	Start(ctx virt.Context, id string) error
-	Suspend(ctx virt.Context, id string) error
-	Resume(ctx virt.Context, id string) error
-	Stop(ctx virt.Context, id string, force bool) error
-	Destroy(ctx virt.Context, id string, force bool) (<-chan error, error)
-	Wait(ctx virt.Context, id string, block bool) (msg string, code int, err error)
+	Resize(ctx context.Context, id string, cpu int, mem int64, vols map[string]int64) error
+	Start(ctx context.Context, id string) error
+	Suspend(ctx context.Context, id string) error
+	Resume(ctx context.Context, id string) error
+	Stop(ctx context.Context, id string, force bool) error
+	Destroy(ctx context.Context, id string, force bool) (<-chan error, error)
+	Wait(ctx context.Context, id string, block bool) (msg string, code int, err error)
 }
 
 // Loadable wraps a group of loadable methods.
 type Loadable interface {
-	Load(ctx virt.Context, id string) (*guest.Guest, error)
-	LoadUUID(ctx virt.Context, id string) (string, error)
-	ListLocalIDs(ctx virt.Context, onlyERU bool) ([]string, error)
+	Load(ctx context.Context, id string) (*guest.Guest, error)
+	LoadUUID(ctx context.Context, id string) (string, error)
+	ListLocalIDs(ctx context.Context, onlyERU bool) ([]string, error)
 }
 
 var imageMutex sync.Mutex
 
 // Imageable wraps a group of methods about images.
 type Imageable interface {
-	Capture(ctx virt.Context, guestID, user, name string, overridden bool) (*models.UserImage, error)
-	RemoveImage(ctx virt.Context, imageName, user string, force, prune bool) ([]string, error)
-	ListImage(ctx virt.Context, filter string) ([]models.Image, error)
-	DigestImage(ctx virt.Context, name string, local bool) ([]string, error)
+	Capture(ctx context.Context, guestID, user, name string, overridden bool) (*models.UserImage, error)
+	RemoveImage(ctx context.Context, imageName, user string, force, prune bool) ([]string, error)
+	ListImage(ctx context.Context, filter string) ([]models.Image, error)
+	DigestImage(ctx context.Context, name string, local bool) ([]string, error)
 }
 
 // Snapshotable wraps a group a methods about snapshots.
 type Snapshotable interface {
-	ListSnapshot(ctx virt.Context, guestID, volID string) (map[*models.Volume]models.Snapshots, error)
-	CreateSnapshot(ctx virt.Context, id, volID string) error
-	CommitSnapshot(ctx virt.Context, id, volID, snapID string) error
-	CommitSnapshotByDay(ctx virt.Context, id, volID string, day int) error
-	RestoreSnapshot(ctx virt.Context, id, volID, snapID string) error
+	ListSnapshot(ctx context.Context, guestID, volID string) (map[*models.Volume]models.Snapshots, error)
+	CreateSnapshot(ctx context.Context, id, volID string) error
+	CommitSnapshot(ctx context.Context, id, volID, snapID string) error
+	CommitSnapshotByDay(ctx context.Context, id, volID string, day int) error
+	RestoreSnapshot(ctx context.Context, id, volID, snapID string) error
 }
 
 // Manager implements the Manageable interface.
@@ -114,49 +114,66 @@ func New() Manager {
 }
 
 // Destroy destroys a guest.
-func (m Manager) Destroy(ctx virt.Context, id string, force bool) (<-chan error, error) {
+func (m Manager) Destroy(ctx context.Context, id string, force bool) (<-chan error, error) {
 	var done <-chan error
 	err := m.ctrl(ctx, id, destroyOp, func(g *guest.Guest) (de error) {
-		done, de = g.Destroy(force)
+		done, de = g.Destroy(ctx, force)
 		return
 	}, nil)
 	return done, err
 }
 
 // Stop stops a guest.
-func (m Manager) Stop(ctx virt.Context, id string, force bool) error {
-	return m.ctrl(ctx, id, shutOp, func(g *guest.Guest) error {
-		return g.Stop(force)
-	}, nil)
+func (m Manager) Stop(ctx context.Context, id string, force bool) error {
+	do := func(ctx context.Context) (any, error) {
+		g, err := m.Load(ctx, id)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if err := g.Stop(ctx, force); err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		return nil, nil
+	}
+	_, err := m.do(ctx, id, shutOp, do, nil)
+	return err
 }
 
 // Start boots a guest.
-func (m Manager) Start(ctx virt.Context, id string) error {
-	return m.ctrl(ctx, id, bootOp, func(g *guest.Guest) error {
-		if err := g.Start(); err != nil {
-			return err
+func (m Manager) Start(ctx context.Context, id string) error {
+	do := func(ctx context.Context) (any, error) {
+		g, err := m.Load(ctx, id)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if err := g.Start(ctx); err != nil {
+			return nil, errors.Trace(err)
 		}
 
 		if g.LambdaOption != nil && !g.LambdaStdin {
 			output, exitCode, pid, err := g.ExecuteCommand(ctx, g.LambdaOption.Cmd)
 			if err != nil {
-				return err
+				return nil, errors.Trace(err)
 			}
 			g.LambdaOption.CmdOutput = output
 			g.LambdaOption.ExitCode = exitCode
 			g.LambdaOption.Pid = pid
 
 			if err = g.Save(); err != nil {
-				return err
+				return nil, errors.Trace(err)
 			}
 		}
 
-		return nil
-	}, nil)
+		return nil, nil
+	}
+	defer log.Debugf("exit manager.Start")
+	_, err := m.do(ctx, id, bootOp, do, nil)
+	return err
 }
 
 // Wait for a guest.
-func (m Manager) Wait(ctx virt.Context, id string, block bool) (msg string, code int, err error) {
+func (m Manager) Wait(ctx context.Context, id string, block bool) (msg string, code int, err error) {
 	err = m.ctrl(ctx, id, miscOp, func(g *guest.Guest) error {
 		if err = g.Wait(models.StatusStopped, block); err != nil {
 			return err
@@ -173,28 +190,28 @@ func (m Manager) Wait(ctx virt.Context, id string, block bool) (msg string, code
 }
 
 // Suspend suspends a guest.
-func (m Manager) Suspend(ctx virt.Context, id string) error {
+func (m Manager) Suspend(ctx context.Context, id string) error {
 	return m.ctrl(ctx, id, bootOp, func(g *guest.Guest) error {
 		return g.Suspend()
 	}, nil)
 }
 
 // Resume resumes a suspended guest.
-func (m Manager) Resume(ctx virt.Context, id string) error {
+func (m Manager) Resume(ctx context.Context, id string) error {
 	return m.ctrl(ctx, id, bootOp, func(g *guest.Guest) error {
 		return g.Resume()
 	}, nil)
 }
 
 // Resize re-allocates spec or volumes.
-func (m Manager) Resize(ctx virt.Context, id string, cpu int, mem int64, vols map[string]int64) error {
+func (m Manager) Resize(ctx context.Context, id string, cpu int, mem int64, vols map[string]int64) error {
 	return m.ctrl(ctx, id, resizeOp, func(g *guest.Guest) error {
 		return g.Resize(cpu, mem, vols)
 	}, nil)
 }
 
 // List snapshots of volume.
-func (m Manager) ListSnapshot(ctx virt.Context, guestID, volID string) (map[*models.Volume]models.Snapshots, error) {
+func (m Manager) ListSnapshot(ctx context.Context, guestID, volID string) (map[*models.Volume]models.Snapshots, error) {
 	g, err := m.Load(ctx, guestID)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -204,7 +221,7 @@ func (m Manager) ListSnapshot(ctx virt.Context, guestID, volID string) (map[*mod
 }
 
 // Create snapshot of volume with volID
-func (m Manager) CreateSnapshot(ctx virt.Context, id, volID string) error {
+func (m Manager) CreateSnapshot(ctx context.Context, id, volID string) error {
 	return m.ctrl(ctx, id, createSnapshotOp, func(g *guest.Guest) error {
 		suspended := false
 		stopped := false
@@ -222,7 +239,7 @@ func (m Manager) CreateSnapshot(ctx virt.Context, id, volID string) error {
 		if err := g.CheckVolume(volID); err != nil {
 
 			if suspended {
-				if err := g.Stop(true); err != nil {
+				if err := g.Stop(ctx, true); err != nil {
 					return err
 				}
 				suspended = false
@@ -237,18 +254,18 @@ func (m Manager) CreateSnapshot(ctx virt.Context, id, volID string) error {
 		if suspended {
 			return g.Resume()
 		} else if stopped {
-			return g.Start()
+			return g.Start(ctx)
 		}
 		return nil
 	}, nil)
 }
 
 // Commit snapshot (with snapID) to the root backing file
-func (m Manager) CommitSnapshot(ctx virt.Context, id, volID, snapID string) error {
+func (m Manager) CommitSnapshot(ctx context.Context, id, volID, snapID string) error {
 	return m.ctrl(ctx, id, commitSnapshotOp, func(g *guest.Guest) error {
 		stopped := false
 		if g.Status == models.StatusRunning {
-			if err := g.Stop(true); err != nil {
+			if err := g.Stop(ctx, true); err != nil {
 				return err
 			}
 			stopped = true
@@ -259,18 +276,18 @@ func (m Manager) CommitSnapshot(ctx virt.Context, id, volID, snapID string) erro
 		}
 
 		if stopped {
-			return g.Start()
+			return g.Start(ctx)
 		}
 		return nil
 	}, nil)
 }
 
 // Commit snapshot that created `day` days before
-func (m Manager) CommitSnapshotByDay(ctx virt.Context, id, volID string, day int) error {
+func (m Manager) CommitSnapshotByDay(ctx context.Context, id, volID string, day int) error {
 	return m.ctrl(ctx, id, commitSnapshotOp, func(g *guest.Guest) error {
 		stopped := false
 		if g.Status == models.StatusRunning {
-			if err := g.Stop(true); err != nil {
+			if err := g.Stop(ctx, true); err != nil {
 				return err
 			}
 			stopped = true
@@ -281,18 +298,18 @@ func (m Manager) CommitSnapshotByDay(ctx virt.Context, id, volID string, day int
 		}
 
 		if stopped {
-			return g.Start()
+			return g.Start(ctx)
 		}
 		return nil
 	}, nil)
 }
 
 // Restore volume to snapshot with snapID
-func (m Manager) RestoreSnapshot(ctx virt.Context, id, volID, snapID string) error {
+func (m Manager) RestoreSnapshot(ctx context.Context, id, volID, snapID string) error {
 	return m.ctrl(ctx, id, restoreSnapshotOp, func(g *guest.Guest) error {
 		stopped := false
 		if g.Status == models.StatusRunning {
-			if err := g.Stop(true); err != nil {
+			if err := g.Stop(ctx, true); err != nil {
 				return err
 			}
 			stopped = true
@@ -303,14 +320,14 @@ func (m Manager) RestoreSnapshot(ctx virt.Context, id, volID, snapID string) err
 		}
 
 		if stopped {
-			return g.Start()
+			return g.Start(ctx)
 		}
 		return nil
 	}, nil)
 }
 
 // Capture captures an image from a guest.
-func (m Manager) Capture(ctx virt.Context, guestID, user, name string, overridden bool) (*models.UserImage, error) {
+func (m Manager) Capture(ctx context.Context, guestID, user, name string, overridden bool) (*models.UserImage, error) {
 	g, err := m.Load(ctx, guestID)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -325,7 +342,7 @@ func (m Manager) Capture(ctx virt.Context, guestID, user, name string, overridde
 }
 
 // RemoveImage removes a local image.
-func (m Manager) RemoveImage(_ virt.Context, imageName, user string, _, _ bool) ([]string, error) {
+func (m Manager) RemoveImage(_ context.Context, imageName, user string, _, _ bool) ([]string, error) {
 	img, err := models.LoadImage(imageName, user)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -346,7 +363,7 @@ func (m Manager) RemoveImage(_ virt.Context, imageName, user string, _, _ bool) 
 }
 
 // ListImage .
-func (m Manager) ListImage(_ virt.Context, filter string) ([]models.Image, error) {
+func (m Manager) ListImage(_ context.Context, filter string) ([]models.Image, error) {
 	imgs, err := models.ListSysImages()
 	if err != nil {
 		return nil, err
@@ -373,7 +390,7 @@ func (m Manager) ListImage(_ virt.Context, filter string) ([]models.Image, error
 }
 
 // DigestImage .
-func (m Manager) DigestImage(_ virt.Context, name string, local bool) ([]string, error) {
+func (m Manager) DigestImage(_ context.Context, name string, local bool) ([]string, error) {
 	if !local {
 		// TODO: wait for image-hub implementation and calico update
 		return []string{""}, nil
@@ -396,7 +413,7 @@ func (m Manager) DigestImage(_ virt.Context, name string, local bool) ([]string,
 }
 
 // Create creates a new guest.
-func (m Manager) Create(ctx virt.Context, opts types.GuestCreateOption, host *models.Host, vols []*models.Volume) (*guest.Guest, error) {
+func (m Manager) Create(ctx context.Context, opts types.GuestCreateOption, host *models.Host, vols []*models.Volume) (*guest.Guest, error) {
 	// Creates metadata.
 	g, err := models.CreateGuest(opts, host, vols)
 	if err != nil {
@@ -406,6 +423,10 @@ func (m Manager) Create(ctx virt.Context, opts types.GuestCreateOption, host *mo
 	// Destroys resource and delete metadata while rolling back.
 	var vg *guest.Guest
 	destroy := func() {
+		// Create a new context, because even when the origin ctx is done, we still need run destroy here
+		dCtx, dCancelFn := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer dCancelFn()
+
 		defer func() {
 			// delete guest in etcd
 			log.Infof("Failed to create guest: %v", g)
@@ -417,7 +438,7 @@ func (m Manager) Create(ctx virt.Context, opts types.GuestCreateOption, host *mo
 			return
 		}
 
-		done, err := vg.Destroy(true)
+		done, err := vg.Destroy(dCtx, true)
 		if err != nil {
 			log.ErrorStack(err)
 		}
@@ -447,7 +468,7 @@ func (m Manager) Create(ctx virt.Context, opts types.GuestCreateOption, host *mo
 	return res.(*guest.Guest), nil
 }
 
-func (m Manager) create(ctx virt.Context, g *models.Guest) (vg *guest.Guest, err error) {
+func (m Manager) create(ctx context.Context, g *models.Guest) (vg *guest.Guest, err error) {
 	vg = guest.New(ctx, g)
 	if err := vg.CacheImage(&imageMutex); err != nil {
 		return nil, errors.Trace(err)
@@ -473,7 +494,7 @@ func (m Manager) create(ctx virt.Context, g *models.Guest) (vg *guest.Guest, err
 }
 
 // AttachConsole attaches to a guest's console.
-func (m Manager) AttachConsole(ctx virt.Context, id string, stream io.ReadWriteCloser, flags types.OpenConsoleFlags) error {
+func (m Manager) AttachConsole(ctx context.Context, id string, stream io.ReadWriteCloser, flags types.OpenConsoleFlags) error {
 	g, err := m.Load(ctx, id)
 	if err != nil {
 		return errors.Trace(err)
@@ -490,7 +511,7 @@ func (m Manager) AttachConsole(ctx virt.Context, id string, stream io.ReadWriteC
 }
 
 // ResizeConsoleWindow resizes a console's window.
-func (m Manager) ResizeConsoleWindow(ctx virt.Context, id string, height, width uint) error {
+func (m Manager) ResizeConsoleWindow(ctx context.Context, id string, height, width uint) error {
 	g, err := m.Load(ctx, id)
 	if err != nil {
 		return errors.Trace(err)
@@ -505,7 +526,7 @@ type executeResult struct {
 }
 
 // ExecuteCommand executes commands.
-func (m Manager) ExecuteCommand(ctx virt.Context, id string, commands []string) (content []byte, exitCode, pid int, err error) {
+func (m Manager) ExecuteCommand(ctx context.Context, id string, commands []string) (content []byte, exitCode, pid int, err error) {
 	exec := func(g *guest.Guest) (any, error) {
 		output, exitCode, pid, err := g.ExecuteCommand(ctx, commands)
 		if err != nil {
@@ -527,14 +548,14 @@ func (m Manager) ExecuteCommand(ctx virt.Context, id string, commands []string) 
 }
 
 // Cat cats the file that in the guest.
-func (m Manager) Cat(ctx virt.Context, id, path string, dest io.WriteCloser) error {
+func (m Manager) Cat(ctx context.Context, id, path string, dest io.WriteCloser) error {
 	return m.ctrl(ctx, id, miscOp, func(g *guest.Guest) error {
 		return g.Cat(ctx, path, dest)
 	}, nil)
 }
 
 // Log shows the log file.
-func (m Manager) Log(ctx virt.Context, id, logPath string, n int, dest io.WriteCloser) error {
+func (m Manager) Log(ctx context.Context, id, logPath string, n int, dest io.WriteCloser) error {
 	return m.ctrl(ctx, id, miscOp, func(g *guest.Guest) error {
 		if g.LambdaOption == nil {
 			return g.Log(ctx, n, logPath, dest)
@@ -547,21 +568,21 @@ func (m Manager) Log(ctx virt.Context, id, logPath string, n int, dest io.WriteC
 }
 
 // CopyToGuest copy file to guest
-func (m Manager) CopyToGuest(ctx virt.Context, id, dest string, content chan []byte, override bool) error {
+func (m Manager) CopyToGuest(ctx context.Context, id, dest string, content chan []byte, override bool) error {
 	return m.ctrl(ctx, id, miscOp, func(g *guest.Guest) error {
 		return g.CopyToGuest(ctx, dest, content, override)
 	}, nil)
 }
 
 // DisconnectExtraNetwork disconnects from an extra network.
-func (m Manager) DisconnectExtraNetwork(ctx virt.Context, id, network string) error {
+func (m Manager) DisconnectExtraNetwork(ctx context.Context, id, network string) error {
 	return m.ctrl(ctx, id, miscOp, func(g *guest.Guest) error {
 		return g.DisconnectExtraNetwork(network)
 	}, nil)
 }
 
 // ConnectExtraNetwork connects to an extra network.
-func (m Manager) ConnectExtraNetwork(ctx virt.Context, id, network, ipv4 string) (string, error) {
+func (m Manager) ConnectExtraNetwork(ctx context.Context, id, network, ipv4 string) (string, error) {
 	var ip meta.IP
 
 	if err := m.ctrl(ctx, id, miscOp, func(g *guest.Guest) (ce error) {
@@ -576,7 +597,7 @@ func (m Manager) ConnectExtraNetwork(ctx virt.Context, id, network, ipv4 string)
 
 type ctrlFunc func(*guest.Guest) error
 
-func (m Manager) ctrl(ctx virt.Context, id string, op op, fn ctrlFunc, rollback rollbackFunc) error { //nolint
+func (m Manager) ctrl(ctx context.Context, id string, op op, fn ctrlFunc, rollback rollbackFunc) error { //nolint
 	_, err := m.doCtrl(ctx, id, op, func(g *guest.Guest) (any, error) {
 		return nil, fn(g)
 	}, rollback)
@@ -586,8 +607,8 @@ func (m Manager) ctrl(ctx virt.Context, id string, op op, fn ctrlFunc, rollback 
 type rollbackFunc func()
 type doCtrlFunc func(*guest.Guest) (any, error)
 
-func (m Manager) doCtrl(ctx virt.Context, id string, op op, fn doCtrlFunc, rollback rollbackFunc) (any, error) {
-	do := func(ctx virt.Context) (any, error) {
+func (m Manager) doCtrl(ctx context.Context, id string, op op, fn doCtrlFunc, rollback rollbackFunc) (any, error) {
+	do := func(ctx context.Context) (any, error) {
 		g, err := m.Load(ctx, id)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -598,7 +619,7 @@ func (m Manager) doCtrl(ctx virt.Context, id string, op op, fn doCtrlFunc, rollb
 }
 
 // ListLocals lists all local guests.
-func (m Manager) ListLocalIDs(ctx virt.Context, onlyERU bool) ([]string, error) {
+func (m Manager) ListLocalIDs(ctx context.Context, onlyERU bool) ([]string, error) {
 	ids, err := guest.ListLocalIDs(ctx)
 	if err != nil {
 		return nil, err
@@ -616,7 +637,7 @@ func (m Manager) ListLocalIDs(ctx virt.Context, onlyERU bool) ([]string, error) 
 }
 
 // LoadUUID read a guest's UUID.
-func (m Manager) LoadUUID(ctx virt.Context, id string) (string, error) {
+func (m Manager) LoadUUID(ctx context.Context, id string) (string, error) {
 	g, err := m.Load(ctx, id)
 	if err != nil {
 		return "", errors.Trace(err)
@@ -625,7 +646,7 @@ func (m Manager) LoadUUID(ctx virt.Context, id string) (string, error) {
 }
 
 // Load read a guest from metadata.
-func (m Manager) Load(ctx virt.Context, id string) (*guest.Guest, error) {
+func (m Manager) Load(ctx context.Context, id string) (*guest.Guest, error) {
 	g, err := models.LoadGuest(id)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -639,9 +660,9 @@ func (m Manager) Load(ctx virt.Context, id string) (*guest.Guest, error) {
 	return vg, nil
 }
 
-type doFunc func(virt.Context) (any, error)
+type doFunc func(context.Context) (any, error)
 
-func (m Manager) do(ctx virt.Context, id string, op op, fn doFunc, rollback rollbackFunc) (any, error) {
+func (m Manager) do(ctx context.Context, id string, op op, fn doFunc, rollback rollbackFunc) (any, error) {
 	t := &task{
 		id:  id,
 		op:  op,
@@ -666,7 +687,6 @@ func (m Manager) do(ctx virt.Context, id string, op op, fn doFunc, rollback roll
 	case <-timeout:
 		err = errors.Annotatef(errors.ErrTimeout, "exceed %v", dur)
 	}
-
 	if err != nil {
 		if rollback != nil {
 			rollback()

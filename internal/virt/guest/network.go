@@ -15,6 +15,7 @@ import (
 	"github.com/projecteru2/yavirt/configs"
 	"github.com/projecteru2/yavirt/internal/meta"
 	"github.com/projecteru2/yavirt/internal/models"
+	"github.com/projecteru2/yavirt/internal/util"
 	"github.com/projecteru2/yavirt/internal/vnet"
 	calinet "github.com/projecteru2/yavirt/internal/vnet/calico"
 	"github.com/projecteru2/yavirt/internal/vnet/handler"
@@ -222,7 +223,7 @@ func (g *Guest) releaseIPs(ips ...meta.IP) error {
 func (g *Guest) NetworkHandler(host *models.Host) (handler.Handler, error) {
 	switch g.NetworkMode {
 	case vnet.NetworkCalico:
-		return g.ctx.CalicoHandler()
+		return util.GetCalicoHandler(g.ctx)
 
 	case vnet.NetworkVlan:
 		fallthrough

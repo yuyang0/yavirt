@@ -1,10 +1,10 @@
 package manager
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
-	"github.com/projecteru2/yavirt/internal/virt"
 	"github.com/projecteru2/yavirt/pkg/errors"
 )
 
@@ -29,9 +29,9 @@ func (op op) String() string {
 type task struct {
 	id     string
 	op     op
-	do     func(virt.Context) (any, error)
+	do     func(context.Context) (any, error)
 	result any
-	ctx    virt.Context
+	ctx    context.Context
 	done   chan struct{}
 	once   sync.Once
 	err    error

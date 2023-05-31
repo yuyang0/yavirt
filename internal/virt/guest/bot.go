@@ -25,8 +25,8 @@ import (
 type Bot interface { //nolint
 	Close() error
 	Create() error
-	Boot() error
-	Shutdown(force bool) error
+	Boot(ctx context.Context) error
+	Shutdown(ctx context.Context, force bool) error
 	Suspend() error
 	Resume() error
 	Undefine() error
@@ -106,20 +106,32 @@ func (v *bot) Migrate() error {
 	return nil
 }
 
-func (v *bot) Boot() error {
-	return utils.Invoke([]func() error{
-		v.dom.Boot,
-		v.waitGA,
-		v.setupNics,
-		v.setupVols,
-		v.execBatches,
-		v.BindExtraNetwork,
-	})
+func (v *bot) Boot(ctx context.Context) error {
+	if err := v.dom.Boot(ctx); err != nil {
+		return err
+	}
+	if err := v.waitGA(ctx); err != nil {
+		return err
+	}
+	log.Debugf("Boot: stage1 -> Setting NICs...")
+	if err := v.setupNics(); err != nil {
+		return err
+	}
+	log.Debugf("Boot: stage2 -> Setting Vols...")
+	if err := v.setupVols(); err != nil {
+		return err
+	}
+	log.Debugf("Boot: stage3 -> Executing Batches...")
+	if err := v.execBatches(); err != nil {
+		return err
+	}
+	log.Debugf("Boot: stage4 -> Binding extra networks...")
+	return v.BindExtraNetwork()
 }
 
-func (v *bot) waitGA() error {
-	var ctx, cancel = context.WithTimeout(context.Background(), configs.Conf.GABootTimeout.Duration())
-	defer cancel()
+func (v *bot) waitGA(ctx context.Context) error {
+	// var ctx, cancel = context.WithTimeout(context.Background(), configs.Conf.GABootTimeout.Duration())
+	// defer cancel()
 
 	for i := 1; ; i++ {
 		if err := v.ga.Ping(ctx); err != nil {
@@ -145,8 +157,8 @@ func (v *bot) waitGA() error {
 	}
 }
 
-func (v *bot) Shutdown(force bool) error {
-	return v.dom.Shutdown(force)
+func (v *bot) Shutdown(ctx context.Context, force bool) error {
+	return v.dom.Shutdown(ctx, force)
 }
 
 func (v *bot) Suspend() error {
