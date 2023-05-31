@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 
+	"github.com/dustin/go-humanize"
 	"github.com/projecteru2/yavirt/configs"
 	"github.com/projecteru2/yavirt/internal/meta"
 	"github.com/projecteru2/yavirt/pkg/errors"
@@ -14,22 +16,63 @@ import (
 	"github.com/projecteru2/yavirt/pkg/utils"
 )
 
+type IOConstraint struct {
+	ReadIOPS  uint64 `json:"read_iops"`
+	WriteIOPS uint64 `json:"write_iops"`
+	ReadBPS   uint64 `json:"read_bps"`
+	WriteBPS  uint64 `json:"write_bps"`
+}
+
+func (ic *IOConstraint) parse(s string) (err error) {
+	s = strings.Trim(s, " ")
+	if s == "" {
+		return nil
+	}
+	parts := strings.Split(s, ":")
+	if len(parts) >= 1 {
+		ic.ReadIOPS, err = strconv.ParseUint(parts[0], 10, 64)
+		if err != nil {
+			return
+		}
+	}
+	if len(parts) >= 2 {
+		ic.WriteIOPS, err = strconv.ParseUint(parts[1], 10, 64)
+		if err != nil {
+			return
+		}
+	}
+	if len(parts) >= 3 {
+		ic.ReadBPS, err = humanize.ParseBytes(parts[2])
+		if err != nil {
+			return
+		}
+	}
+	if len(parts) >= 4 {
+		ic.WriteBPS, err = humanize.ParseBytes(parts[3])
+		if err != nil {
+			return
+		}
+	}
+	return
+}
+
 // Volume .
 // etcd keys:
 //
 //	/vols/<vol id>
 type Volume struct {
 	*Generic
-	Type           string   `json:"type"`
-	MountDir       string   `json:"mount,omitempty"`
-	HostDir        string   `json:"host_dir,omitempty"`
-	Capacity       int64    `json:"capacity"`
-	Format         string   `json:"format"`
-	HostName       string   `json:"host"`
-	GuestID        string   `json:"guest"`
-	ImageName      string   `json:"image,omitempty"`
-	SnapIDs        []string `json:"snaps"`
-	BaseSnapshotID string   `json:"base_snapshot_id"`
+	Type           string       `json:"type"`
+	MountDir       string       `json:"mount,omitempty"`
+	HostDir        string       `json:"host_dir,omitempty"`
+	Capacity       int64        `json:"capacity"`
+	IOContraints   IOConstraint `json:"io_contraints"`
+	Format         string       `json:"format"`
+	HostName       string       `json:"host"`
+	GuestID        string       `json:"guest"`
+	ImageName      string       `json:"image,omitempty"`
+	SnapIDs        []string     `json:"snaps"`
+	BaseSnapshotID string       `json:"base_snapshot_id"`
 
 	Snaps Snapshots `json:"-"`
 }
@@ -47,7 +90,7 @@ func LoadVolume(id string) (*Volume, error) {
 }
 
 // NewDataVolume .
-func NewDataVolume(mnt string, cap int64) (*Volume, error) {
+func NewDataVolume(mnt string, cap int64, IO string) (vol *Volume, err error) {
 	mnt = strings.TrimSpace(mnt)
 
 	src, dest := utils.PartRight(mnt, ":")
@@ -58,11 +101,47 @@ func NewDataVolume(mnt string, cap int64) (*Volume, error) {
 		src = filepath.Join("/", src)
 	}
 
-	var vol = NewVolume(VolDataType, cap)
+	vol = NewVolume(VolDataType, cap)
 	vol.HostDir = src
 	vol.MountDir = dest
-
+	err = vol.IOContraints.parse(IO)
+	if err != nil {
+		return nil, err
+	}
 	return vol, vol.Check()
+}
+
+// NewDataVolumeFromStr
+// format: `src:dst[:flags][:size][:read_IOPS:write_IOPS:read_bytes:write_bytes]`
+// example: `/source:/dir0:rw:1024:1000:1000:10M:10M`
+func NewDataVolumeFromStr(s string) (*Volume, error) {
+	parts := strings.Split(s, ":")
+	if len(parts) != 4 && len(parts) != 8 {
+		return nil, errors.Annotatef(errors.ErrInvalidVolumeBind, "bind: %s", s)
+	}
+
+	src := parts[0]
+	dest := parts[1]
+	if !strings.HasPrefix(dest, "/") {
+		dest = filepath.Join("/", parts[1])
+	}
+
+	mnt := dest
+	// the src part has been translated to real host directory by eru-sched or kept it to empty.
+	if len(src) > 0 {
+		mnt = fmt.Sprintf("%s:%s", src, dest)
+	}
+
+	capacity, err := strconv.ParseInt(parts[3], 10, 64)
+	if err != nil {
+		return nil, err
+	}
+
+	ioConstraints := ""
+	if len(parts) > 4 {
+		ioConstraints = strings.Join(parts[4:], ":")
+	}
+	return NewDataVolume(mnt, capacity, ioConstraints)
 }
 
 // NewSysVolume .

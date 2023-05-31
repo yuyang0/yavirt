@@ -96,7 +96,7 @@ func (vol *Volume) Attach(dom domain.Domain, ga agent.Interface, devName string)
 	}()
 
 	var st libvirt.DomainState
-	if st, err = dom.AttachVolume(vol.Filepath(), devName); err == nil && st == libvirt.DomainRunning {
+	if st, err = dom.AttachVolume(vol.Filepath(), devName, &vol.IOContraints); err == nil && st == libvirt.DomainRunning {
 		err = vol.Mount(ga, models.GetDevicePathByName(devName))
 	}
 

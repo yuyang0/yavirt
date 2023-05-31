@@ -6,8 +6,8 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/projecteru2/yavirt/cmd/run"
+	"github.com/projecteru2/yavirt/internal/models"
 	"github.com/projecteru2/yavirt/pkg/errors"
-	"github.com/projecteru2/yavirt/pkg/utils"
 )
 
 func resizeFlags() []cli.Flag {
@@ -25,12 +25,13 @@ func resizeFlags() []cli.Flag {
 }
 
 func resize(c *cli.Context, runtime run.Runtime) (err error) {
-	vs := map[string]int64{}
+	vs := map[string]*models.Volume{}
 	for _, raw := range c.StringSlice("volumes") {
-		mnt, cap := utils.PartRight(raw, ":") //nolint
-		if vs[mnt], err = utils.Atoi64(cap); err != nil {
+		vol, err := models.NewDataVolumeFromStr(raw)
+		if err != nil {
 			return errors.Trace(err)
 		}
+		vs[vol.MountDir] = vol
 	}
 
 	id := c.Args().First()

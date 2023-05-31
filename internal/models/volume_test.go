@@ -34,7 +34,7 @@ func TestDataVolume(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		vol, err := NewDataVolume(c.in, configs.Conf.MinVolumeCap)
+		vol, err := NewDataVolume(c.in, configs.Conf.MinVolumeCap, "")
 		assert.NilErr(t, err)
 
 		vol.ID = "id"

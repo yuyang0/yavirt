@@ -124,7 +124,7 @@ func (g *Guest) start(ctx context.Context) error {
 }
 
 // Resize .
-func (g *Guest) Resize(cpu int, mem int64, mntCaps map[string]int64) error {
+func (g *Guest) Resize(cpu int, mem int64, vols map[string]*models.Volume) error {
 	// Only checking, without touch metadata
 	// due to we wanna keep further booting successfully all the time.
 	if !g.CheckForwardStatus(models.StatusResizing) {
@@ -133,13 +133,13 @@ func (g *Guest) Resize(cpu int, mem int64, mntCaps map[string]int64) error {
 
 	// Actually, mntCaps from ERU will include completed volumes,
 	// even those volumes aren't affected.
-	if len(mntCaps) > 0 {
+	if len(vols) > 0 {
 		// Just amplifies those original volumes.
-		if err := g.amplifyOrigVols(mntCaps); err != nil {
+		if err := g.amplifyOrigVols(vols); err != nil {
 			return errors.Trace(err)
 		}
 		// Attaches new extra volumes.
-		if err := g.attachVols(mntCaps); err != nil {
+		if err := g.attachVols(vols); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -151,19 +151,10 @@ func (g *Guest) Resize(cpu int, mem int64, mntCaps map[string]int64) error {
 	return g.resizeSpec(cpu, mem)
 }
 
-func (g *Guest) amplifyOrigVols(mntCaps map[string]int64) error {
-	newCapMods := map[string]*models.Volume{}
-	for mnt, cap := range mntCaps {
-		mod, err := models.NewDataVolume(mnt, cap)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		newCapMods[mod.MountDir] = mod
-	}
-
+func (g *Guest) amplifyOrigVols(vols map[string]*models.Volume) error {
 	var err error
 	g.rangeVolumes(func(sn int, vol volume.Virt) bool {
-		newCapMod, affected := newCapMods[vol.Model().MountDir]
+		newCapMod, affected := vols[vol.Model().MountDir]
 		if !affected {
 			return true
 		}
@@ -186,20 +177,16 @@ func (g *Guest) amplifyOrigVols(mntCaps map[string]int64) error {
 	return err
 }
 
-func (g *Guest) attachVols(mntCaps map[string]int64) error {
-	for mnt, cap := range mntCaps {
-		volmod, err := models.NewDataVolume(mnt, cap)
-		switch {
-		case err != nil:
-			return errors.Trace(err)
-		case g.Vols.Exists(volmod.MountDir):
+func (g *Guest) attachVols(vols map[string]*models.Volume) error {
+	for _, vol := range vols {
+		if g.Vols.Exists(vol.MountDir) {
 			continue
 		}
 
-		volmod.GuestID = g.ID
-		volmod.Status = g.Status
-		volmod.GenerateID()
-		if err := g.attachVol(volmod); err != nil {
+		vol.GuestID = g.ID
+		vol.Status = g.Status
+		vol.GenerateID()
+		if err := g.attachVol(vol); err != nil {
 			return errors.Trace(err)
 		}
 	}

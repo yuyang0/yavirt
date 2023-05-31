@@ -34,7 +34,7 @@ func TestCreate_WithExtVolumes(t *testing.T) {
 	defer bot.AssertExpectations(t)
 
 	var genvol = func(id int64, cap int64) *models.Volume {
-		vol, err := models.NewDataVolume("/data", cap)
+		vol, err := models.NewDataVolume("/data", cap, "")
 		assert.NilErr(t, err)
 		return vol
 	}
@@ -92,7 +92,7 @@ func TestLifecycle(t *testing.T) {
 	assert.Equal(t, models.StatusStopped, guest.Status)
 	guest.rangeVolumes(checkVolsStatus(t, models.StatusStopped))
 
-	assert.NilErr(t, guest.Resize(guest.CPU, guest.Memory, map[string]int64{}))
+	assert.NilErr(t, guest.Resize(guest.CPU, guest.Memory, map[string]*models.Volume{}))
 	assert.Equal(t, models.StatusStopped, guest.Status)
 	guest.rangeVolumes(checkVolsStatus(t, models.StatusStopped))
 
@@ -163,7 +163,7 @@ func TestLifecycle_InvalidStatus(t *testing.T) {
 	assert.Nil(t, done)
 
 	guest.Status = models.StatusPending
-	assert.Err(t, guest.Resize(guest.CPU, guest.Memory, map[string]int64{}))
+	assert.Err(t, guest.Resize(guest.CPU, guest.Memory, map[string]*models.Volume{}))
 }
 
 func TestSyncState(t *testing.T) {
@@ -283,7 +283,7 @@ func TestAmplifyOrigVols_HostDirMount(t *testing.T) {
 	guest, bot := newMockedGuest(t)
 	defer bot.AssertExpectations(t)
 
-	volmod, err := models.NewDataVolume("/tmp:/data", utils.GB)
+	volmod, err := models.NewDataVolume("/tmp:/data", utils.GB, "")
 	assert.NilErr(t, err)
 
 	bot.On("Close").Return(nil).Once()
@@ -292,7 +292,9 @@ func TestAmplifyOrigVols_HostDirMount(t *testing.T) {
 	bot.On("AmplifyVolume", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 
 	guest.Vols = models.Volumes{volmod}
-	mnt := map[string]int64{"/tmp:/data": utils.GB * 10}
+	vol, err := models.NewDataVolume("/tmp:/data", utils.GB*10, "")
+	assert.Nil(t, err)
+	mnt := map[string]*models.Volume{vol.MountDir: vol}
 	assert.NilErr(t, guest.amplifyOrigVols(mnt))
 }
 
@@ -312,7 +314,9 @@ func TestAttachVolumes_CheckVolumeModel(t *testing.T) {
 	guest.Status = models.StatusRunning
 	guest.HostName = "lo"
 	guest.ID = "guestid"
-	vols := map[string]int64{"/data": utils.GB}
+	vol, err := models.NewDataVolume("/data", utils.GB, "")
+	assert.Nil(t, err)
+	vols := map[string]*models.Volume{"/data": vol}
 	assert.NilErr(t, guest.Resize(guest.CPU, guest.Memory, vols))
 
 	volmod := guest.Vols[1] // guest.Vols[0] is the sys volume.
@@ -344,7 +348,9 @@ func TestAttachVolumes_Rollback(t *testing.T) {
 	meta.On("Update", mock.Anything, mock.Anything, mock.Anything).Return(fmt.Errorf("faked-error")).Once()
 
 	guest.Status = models.StatusRunning
-	vols := map[string]int64{"/data": utils.GB}
+	vol, err := models.NewDataVolume("/data", utils.GB, "")
+	assert.Nil(t, err)
+	vols := map[string]*models.Volume{"/data": vol}
 	assert.Err(t, guest.Resize(guest.CPU, guest.Memory, vols))
 	assert.Equal(t, 1, guest.Vols.Len())
 	assert.Equal(t, models.VolSysType, guest.Vols[0].Type)
@@ -364,12 +370,14 @@ func TestCannotShrinkOrigVolumes(t *testing.T) {
 
 	for _, tc := range testcases {
 		guest, _ := newMockedGuest(t)
-		volmod, err := models.NewDataVolume(tc.exists, utils.GB*2)
+		volmod, err := models.NewDataVolume(tc.exists, utils.GB*2, "")
 		assert.NilErr(t, err)
 		assert.NilErr(t, guest.AppendVols(volmod))
 
 		guest.Status = models.StatusRunning
-		vols := map[string]int64{tc.resizing: utils.GB}
+		vol, err := models.NewDataVolume(tc.resizing, utils.GB, "")
+		assert.Nil(t, err)
+		vols := map[string]*models.Volume{vol.MountDir: vol}
 		assert.True(t, errors.Contain(
 			guest.Resize(guest.CPU, guest.Memory, vols),
 			errors.ErrCannotShrinkVolume,

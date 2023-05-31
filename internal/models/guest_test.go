@@ -151,7 +151,7 @@ func TestRemoveVol(t *testing.T) {
 	for _, tc := range testcases {
 		g := newGuest()
 		for _, id := range tc.orig {
-			vol, err := NewDataVolume(fmt.Sprintf("/data%d", id), utils.GB)
+			vol, err := NewDataVolume(fmt.Sprintf("/data%d", id), utils.GB, "")
 			assert.NilErr(t, err)
 
 			vol.ID = strconv.Itoa(id)

@@ -194,7 +194,7 @@ func (svc *Service) GetGuestUUID(ctx context.Context, id string) (string, error)
 func (svc *Service) CreateGuest(ctx context.Context, opts virtypes.GuestCreateOption) (*types.Guest, error) {
 	vols := []*models.Volume{}
 	for _, v := range opts.Volumes {
-		vol, err := models.NewDataVolume(v.Mount, v.Capacity)
+		vol, err := models.NewDataVolume(v.Mount, v.Capacity, v.IO)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -233,9 +233,13 @@ func (svc *Service) CaptureGuest(ctx context.Context, req types.CaptureGuestReq)
 
 // ResizeGuest .
 func (svc *Service) ResizeGuest(ctx context.Context, req types.ResizeGuestReq) (err error) {
-	vols := map[string]int64{}
-	for _, vol := range req.Volumes {
-		vols[vol.Mount] = vol.Capacity
+	vols := map[string]*models.Volume{}
+	for _, v := range req.Volumes {
+		vol, err := models.NewDataVolume(v.Mount, v.Capacity, v.IO)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		vols[vol.MountDir] = vol
 	}
 	if err = svc.guest.Resize(ctx, req.VirtID(), req.CPU, req.Mem, vols); err != nil {
 		log.ErrorStack(err)

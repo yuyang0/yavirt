@@ -62,7 +62,7 @@ type Executable interface {
 
 // Controllable wraps a group of controlling methods.
 type Controllable interface {
-	Resize(ctx context.Context, id string, cpu int, mem int64, vols map[string]int64) error
+	Resize(ctx context.Context, id string, cpu int, mem int64, vols map[string]*models.Volume) error
 	Start(ctx context.Context, id string) error
 	Suspend(ctx context.Context, id string) error
 	Resume(ctx context.Context, id string) error
@@ -204,7 +204,7 @@ func (m Manager) Resume(ctx context.Context, id string) error {
 }
 
 // Resize re-allocates spec or volumes.
-func (m Manager) Resize(ctx context.Context, id string, cpu int, mem int64, vols map[string]int64) error {
+func (m Manager) Resize(ctx context.Context, id string, cpu int, mem int64, vols map[string]*models.Volume) error {
 	return m.ctrl(ctx, id, resizeOp, func(g *guest.Guest) error {
 		return g.Resize(cpu, mem, vols)
 	}, nil)

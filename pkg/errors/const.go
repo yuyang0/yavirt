@@ -63,6 +63,8 @@ var (
 	ErrCannotShrinkVolume = New("cannot shrink a volume")
 	// ErrDomainNotExists .
 	ErrDomainNotExists = New("domain not exists")
+	// ErrInvalidVolumeBind .
+	ErrInvalidVolumeBind = New("invalid volume bind.")
 
 	// ErrTooLargeOffset .
 	ErrTooLargeOffset = New("too large offset")

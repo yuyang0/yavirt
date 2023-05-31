@@ -13,7 +13,7 @@ import (
 )
 
 func TestAmplifyFailed_DeltaLessThanMinSize(t *testing.T) {
-	volmod, err := models.NewDataVolume("/data", utils.TB)
+	volmod, err := models.NewDataVolume("/data", utils.TB, "")
 	assert.NilErr(t, err)
 
 	vol := &Volume{Volume: volmod}
@@ -25,7 +25,7 @@ func TestAmplifyFailed_DeltaLessThanMinSize(t *testing.T) {
 }
 
 func TestAmplifyFailed_DeltaLessThanMinRatio(t *testing.T) {
-	volmod, err := models.NewDataVolume("/data", utils.TB)
+	volmod, err := models.NewDataVolume("/data", utils.TB, "")
 	assert.NilErr(t, err)
 
 	vol := &Volume{Volume: volmod}
@@ -37,7 +37,7 @@ func TestAmplifyFailed_DeltaLessThanMinRatio(t *testing.T) {
 }
 
 func TestAmplify(t *testing.T) {
-	volmod, err := models.NewDataVolume("/data", 10*utils.GB)
+	volmod, err := models.NewDataVolume("/data", 10*utils.GB, "")
 	assert.NilErr(t, err)
 
 	bot := &mocks.Bot{}

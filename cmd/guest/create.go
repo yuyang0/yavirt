@@ -100,14 +100,7 @@ func getVols(mounts string) ([]*models.Volume, error) {
 	var vols = []*models.Volume{}
 
 	for _, raw := range strings.Split(mounts, ",") {
-		mnt, rawCap := utils.PartRight(raw, ":")
-
-		volCap, err := utils.Atoi64(rawCap)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		vol, err := models.NewDataVolume(mnt, volCap)
+		vol, err := models.NewDataVolumeFromStr(raw)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

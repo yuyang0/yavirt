@@ -483,11 +483,11 @@ func (_m *Manageable) RemoveImage(ctx context.Context, imageName string, user st
 }
 
 // Resize provides a mock function with given fields: ctx, id, cpu, mem, vols
-func (_m *Manageable) Resize(ctx context.Context, id string, cpu int, mem int64, vols map[string]int64) error {
+func (_m *Manageable) Resize(ctx context.Context, id string, cpu int, mem int64, vols map[string]*models.Volume) error {
 	ret := _m.Called(ctx, id, cpu, mem, vols)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, int, int64, map[string]int64) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, int, int64, map[string]*models.Volume) error); ok {
 		r0 = rf(ctx, id, cpu, mem, vols)
 	} else {
 		r0 = ret.Error(0)

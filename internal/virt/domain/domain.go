@@ -3,8 +3,8 @@ package domain
 import (
 	"context"
 	"encoding/xml"
+	"fmt"
 	"path/filepath"
-	"strings"
 	"time"
 
 	_ "embed"
@@ -39,7 +39,7 @@ type Domain interface { //nolint
 	CheckShutoff() error
 	GetUUID() (string, error)
 	GetConsoleTtyname() (string, error)
-	AttachVolume(filepath, devName string) (st libvirt.DomainState, err error)
+	AttachVolume(filepath, devName string, ic *models.IOConstraint) (st libvirt.DomainState, err error)
 	AmplifyVolume(filepath string, cap uint64) error
 	Define() error
 	Undefine() error
@@ -377,12 +377,16 @@ func (d *VirtDomain) dataVols(vols models.Volumes) []map[string]string {
 			continue
 		}
 
-		dat = append(dat, map[string]string{
-			"path": v.Filepath(),
-			"dev":  v.GetDeviceName(i),
-		})
+		d := map[string]string{
+			"path":       v.Filepath(),
+			"dev":        v.GetDeviceName(i),
+			"read_iops":  fmt.Sprintf("%d", v.IOContraints.ReadIOPS),
+			"write_iops": fmt.Sprintf("%d", v.IOContraints.WriteIOPS),
+			"read_bps":   fmt.Sprintf("%d", v.IOContraints.ReadBPS),
+			"write_bps":  fmt.Sprintf("%d", v.IOContraints.WriteBPS),
+		}
+		dat = append(dat, d)
 	}
-
 	return dat
 }
 
@@ -495,7 +499,7 @@ func (d *VirtDomain) setMemory(mem int64, dom libvirt.Domain) error {
 }
 
 // AttachVolume .
-func (d *VirtDomain) AttachVolume(filepath, devName string) (st libvirt.DomainState, err error) {
+func (d *VirtDomain) AttachVolume(filepath, devName string, ic *models.IOConstraint) (st libvirt.DomainState, err error) {
 	var dom libvirt.Domain
 	if dom, err = d.lookup(); err != nil {
 		return
@@ -503,17 +507,21 @@ func (d *VirtDomain) AttachVolume(filepath, devName string) (st libvirt.DomainSt
 	defer dom.Free()
 
 	var buf []byte
-	if buf, err = d.renderAttachVolumeXML(filepath, devName); err != nil {
+	if buf, err = d.renderAttachVolumeXML(filepath, devName, ic); err != nil {
 		return
 	}
 
 	return dom.AttachVolume(string(buf))
 }
 
-func (d *VirtDomain) renderAttachVolumeXML(filepath, devName string) ([]byte, error) {
+func (d *VirtDomain) renderAttachVolumeXML(filepath, devName string, ic *models.IOConstraint) ([]byte, error) {
 	args := map[string]any{
-		"path": filepath,
-		"dev":  devName,
+		"path":       filepath,
+		"dev":        devName,
+		"read_iops":  fmt.Sprintf("%d", ic.ReadIOPS),
+		"write_iops": fmt.Sprintf("%d", ic.WriteIOPS),
+		"read_bps":   fmt.Sprintf("%d", ic.ReadBPS),
+		"write_bps":  fmt.Sprintf("%d", ic.WriteBPS),
 	}
 	return template.Render(d.diskTemplateFilepath(), diskXML, args)
 }
