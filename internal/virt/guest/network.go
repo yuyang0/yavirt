@@ -244,7 +244,7 @@ func (g *Guest) calicoCNIDel() error {
 		return errors.Trace(err)
 	}
 
-	_, err = execCNIPlugin(env, bytes.NewBuffer(dat), configs.Conf.CNIPluginPath)
+	_, err = execCNIPlugin(env, bytes.NewBuffer(dat), configs.Conf.CNI.PluginPath)
 	return err
 }
 
@@ -281,13 +281,13 @@ func (g *Guest) calicoCNIAdd(needRollback bool) (stdout []byte, rollback func() 
 		return nil, nil, errors.Trace(err)
 	}
 
-	if stdout, err = execCNIPlugin(env, bytes.NewBuffer(dat), configs.Conf.CNIPluginPath); err != nil {
+	if stdout, err = execCNIPlugin(env, bytes.NewBuffer(dat), configs.Conf.CNI.PluginPath); err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
 	execDel := func() error {
 		env["CNI_COMMAND"] = cniCmdDel
-		_, err := execCNIPlugin(env, bytes.NewBuffer(dat), configs.Conf.CNIPluginPath)
+		_, err := execCNIPlugin(env, bytes.NewBuffer(dat), configs.Conf.CNI.PluginPath)
 		return err
 	}
 
@@ -348,7 +348,7 @@ func (g *Guest) populateIPFromAddResult(dat []byte) error {
 
 func (g *Guest) readCNIConfig() ([]byte, error) {
 	// TODO: follows the CNI policy, rather than hard code absolute path here.
-	return os.ReadFile(configs.Conf.CNIConfigPath)
+	return os.ReadFile(configs.Conf.CNI.ConfigPath)
 }
 
 func (g *Guest) makeCNIEnv() map[string]string {
@@ -356,7 +356,7 @@ func (g *Guest) makeCNIEnv() map[string]string {
 		"CNI_CONTAINERID": g.ID,
 		"CNI_ARGS":        "IgnoreUnknown=1;MAC=" + g.MAC,
 		"CNI_IFNAME":      g.NetworkPair,
-		"CNI_PATH":        filepath.Dir(configs.Conf.CNIPluginPath),
+		"CNI_PATH":        filepath.Dir(configs.Conf.CNI.PluginPath),
 		"CNI_NETNS":       "yap",
 	}
 }

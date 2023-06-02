@@ -24,7 +24,7 @@ func (svc *Service) setupCalico() error {
 		return errors.Trace(err)
 	}
 
-	if err := svc.caliHandler.InitGateway(configs.Conf.CalicoGatewayName); err != nil {
+	if err := svc.caliHandler.InitGateway(configs.Conf.Calico.GatewayName); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -32,7 +32,7 @@ func (svc *Service) setupCalico() error {
 }
 
 func (svc *Service) setupCalicoHandler() error {
-	cali, err := calico.NewDriver(configs.Conf.CalicoConfigFile, configs.Conf.CalicoPoolNames)
+	cali, err := calico.NewDriver(configs.Conf.Calico.ConfigFile, configs.Conf.Calico.PoolNames)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -47,12 +47,12 @@ func (svc *Service) setupCalicoHandler() error {
 		return errors.Trace(err)
 	}
 
-	svc.caliHandler = calihandler.New(dev, cali, configs.Conf.CalicoPoolNames, outboundIP)
+	svc.caliHandler = calihandler.New(dev, cali, configs.Conf.Calico.PoolNames, outboundIP)
 
 	return nil
 }
 
 func (svc *Service) couldSetupCalico() bool {
-	var env = configs.Conf.CalicoETCDEnv
-	return len(configs.Conf.CalicoConfigFile) > 0 || len(os.Getenv(env)) > 0
+	var env = configs.Conf.Calico.ETCDEnv
+	return len(configs.Conf.Calico.ConfigFile) > 0 || len(os.Getenv(env)) > 0
 }

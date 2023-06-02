@@ -29,14 +29,8 @@ virt_dir = "/tmp/virt"
 virt_bridge = "virbr0"
 virt_cpu_cache_passthrough = true
 
-calico_gateway = "yavirt-cali-gw"
-calico_pools = ["clouddev"]
-calico_etcd_env = "ETCD_ENDPOINTS"
-
 log_level = "info"
 
-etcd_prefix = "/yavirt-dev/v1"
-etcd_endpoints = ["http://127.0.0.1:2379"]
 
 ga_disk_timeout = "16m"
 ga_boot_timeout = "30m"
@@ -60,3 +54,12 @@ username = "admin"
 password = "password"
 status_check_interval = "64s"
 nodestatus_ttl = "16m"
+
+[etcd]
+prefix = "/yavirt-dev/v1"
+endpoints = ["http://127.0.0.1:2379"]
+
+[calico]
+gateway = "yavirt-cali-gw"
+pools = ["clouddev"]
+etcd_env = "ETCD_ENDPOINTS"

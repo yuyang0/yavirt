@@ -24,7 +24,7 @@ func TestRealEtcdBacthOperate(t *testing.T) {
 		return
 	}
 
-	configs.Conf.EtcdEndpoints = []string{"127.0.0.1:2379"}
+	configs.Conf.Etcd.Endpoints = []string{"127.0.0.1:2379"}
 	etcd, err := New()
 	assert.NilErr(t, err)
 
@@ -49,7 +49,7 @@ func TestRealEtcdIncrUint32(t *testing.T) {
 		return
 	}
 
-	configs.Conf.EtcdEndpoints = []string{"127.0.0.1:2379"}
+	configs.Conf.Etcd.Endpoints = []string{"127.0.0.1:2379"}
 	etcd, err := New()
 	assert.NilErr(t, err)
 
@@ -91,7 +91,7 @@ func TestRealEtcdCreateSerialization(t *testing.T) {
 		return
 	}
 
-	configs.Conf.EtcdEndpoints = []string{"127.0.0.1:2379"}
+	configs.Conf.Etcd.Endpoints = []string{"127.0.0.1:2379"}
 	var etcd, err = New()
 	assert.NilErr(t, err)
 
@@ -133,7 +133,7 @@ func TestRealEtcdUpdateSerialization(t *testing.T) {
 		return
 	}
 
-	configs.Conf.EtcdEndpoints = []string{"127.0.0.1:2379"}
+	configs.Conf.Etcd.Endpoints = []string{"127.0.0.1:2379"}
 	var etcd, err = New()
 	assert.NilErr(t, err)
 

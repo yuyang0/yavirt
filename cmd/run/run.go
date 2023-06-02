@@ -114,7 +114,7 @@ func setupHost() (err error) {
 
 func setupCalico() (err error) {
 	if endps := os.Getenv("ETCD_ENDPOINTS"); len(endps) < 1 {
-		if err = os.Setenv("ETCD_ENDPOINTS", strings.Join(configs.Conf.EtcdEndpoints, ",")); err != nil {
+		if err = os.Setenv("ETCD_ENDPOINTS", strings.Join(configs.Conf.Etcd.Endpoints, ",")); err != nil {
 			return
 		}
 	}
@@ -123,7 +123,7 @@ func setupCalico() (err error) {
 		return
 	}
 
-	if runtime.CalicoDriver, err = calico.NewDriver(configs.Conf.CalicoConfigFile, configs.Conf.CalicoPoolNames); err != nil {
+	if runtime.CalicoDriver, err = calico.NewDriver(configs.Conf.Calico.ConfigFile, configs.Conf.Calico.PoolNames); err != nil {
 		return
 	}
 
@@ -132,8 +132,8 @@ func setupCalico() (err error) {
 		return
 	}
 
-	runtime.CalicoHandler = calihandler.New(runtime.Device, runtime.CalicoDriver, configs.Conf.CalicoPoolNames, outboundIP)
-	err = runtime.CalicoHandler.InitGateway(configs.Conf.CalicoGatewayName)
+	runtime.CalicoHandler = calihandler.New(runtime.Device, runtime.CalicoDriver, configs.Conf.Calico.PoolNames, outboundIP)
+	err = runtime.CalicoHandler.InitGateway(configs.Conf.Calico.GatewayName)
 
 	return
 }

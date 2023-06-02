@@ -35,7 +35,7 @@ func fasten(_ *cli.Context, _ run.Runtime) error {
 		return errors.Trace(err)
 	}
 
-	prefix := filepath.Join(configs.Conf.EtcdPrefix, "ips", "/")
+	prefix := filepath.Join(configs.Conf.Etcd.Prefix, "ips", "/")
 	data, _, err := store.GetPrefix(context.Background(), prefix, (1<<32)-1) //nolint:gomnd // max value of int32
 	if err != nil {
 		return errors.Trace(err)
@@ -44,7 +44,7 @@ func fasten(_ *cli.Context, _ run.Runtime) error {
 		if !strings.Contains(key, "occupied") {
 			continue
 		}
-		key = strings.TrimPrefix(key, configs.Conf.EtcdPrefix)
+		key = strings.TrimPrefix(key, configs.Conf.Etcd.Prefix)
 		key = strings.TrimLeft(key, "/")
 		parts := strings.Split(key, "/")
 		intSubnet, err := strconv.ParseInt(parts[1], 10, 64)

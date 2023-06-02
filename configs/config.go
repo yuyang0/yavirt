@@ -74,20 +74,43 @@ type HostConfig struct {
 	NetworkMode string     `json:"network,omitempty" toml:"network"`
 }
 
+type ETCDConfig struct {
+	Prefix    string   `toml:"prefix"`
+	Endpoints []string `toml:"endpoints"`
+	Username  string   `toml:"username"`
+	Password  string   `toml:"password"`
+	CA        string   `toml:"ca"`
+	Key       string   `toml:"key"`
+	Cert      string   `toml:"cert"`
+}
+
+type CalicoCnfig struct {
+	ConfigFile  string   `toml:"config_file"`
+	PoolNames   []string `toml:"pools"`
+	GatewayName string   `toml:"gateway"`
+	ETCDEnv     string   `toml:"etcd_env"`
+}
+
+type CNIConfig struct {
+	PluginPath string `toml:"plugin_path"`
+	ConfigPath string `toml:"config_path"`
+}
+
 // Config .
 type Config struct {
 	Env string `toml:"env"`
 	// host-related config
-	Host HostConfig `toml:"host"`
-	Core CoreConfig `toml:"core"`
+	Host   HostConfig  `toml:"host"`
+	Core   CoreConfig  `toml:"core"`
+	Etcd   ETCDConfig  `toml:"etcd"`
+	Calico CalicoCnfig `toml:"calico"`
+	CNI    CNIConfig   `toml:"cni"`
 
 	ProfHTTPPort           int      `toml:"prof_http_port"`
 	BindHTTPAddr           string   `toml:"bind_http_addr"`
 	BindGRPCAddr           string   `toml:"bind_grpc_addr"`
 	SkipGuestReportRegexps []string `toml:"skip_guest_report_regexps"`
 	EnabledCalicoCNI       bool     `toml:"enabled_calico_cni"`
-	CNIPluginPath          string   `toml:"cni_plugin_path"`
-	CNIConfigPath          string   `toml:"cni_config_path"`
 
 	VirtTimeout        Duration `toml:"virt_timeout"`
 	GracefulTimeout    Duration `toml:"graceful_timeout"`
@@ -113,11 +136,6 @@ type Config struct {
 	MaxSnapshotsCount     int   `toml:"max_snapshots_count"`
 	SnapshotRestorableDay int   `toml:"snapshot_restorable_days"`
 
-	CalicoConfigFile  string   `toml:"calico_config_file"`
-	CalicoPoolNames   []string `toml:"calico_pools"`
-	CalicoGatewayName string   `toml:"calico_gateway"`
-	CalicoETCDEnv     string   `toml:"calico_etcd_env"`
-
 	MetaTimeout Duration `toml:"meta_timeout"`
 	MetaType    string   `toml:"meta_type"`
 
@@ -131,14 +149,6 @@ type Config struct {
 	LogLevel  string `toml:"log_level"`
 	LogFile   string `toml:"log_file"`
 	LogSentry string `toml:"log_sentry"`
-
-	EtcdPrefix    string   `toml:"etcd_prefix"`
-	EtcdEndpoints []string `toml:"etcd_endpoints"`
-	EtcdUsername  string   `toml:"etcd_username"`
-	EtcdPassword  string   `toml:"etcd_password"`
-	EtcdCA        string   `toml:"etcd_ca"`
-	EtcdKey       string   `toml:"etcd_key"`
-	EtcdCert      string   `toml:"etcd_cert"`
 
 	Batches []*Batch `toml:"batches"`
 
@@ -209,8 +219,8 @@ func (cfg *Config) Prepare(c *cli.Context) (err error) {
 		cfg.Core.Password = c.String("core-password")
 	}
 	// prepare ETCD_ENDPOINTS(Calico needs this environment variable)
-	if len(cfg.EtcdEndpoints) > 0 {
-		if err = os.Setenv("ETCD_ENDPOINTS", strings.Join(cfg.EtcdEndpoints, ",")); err != nil {
+	if len(cfg.Etcd.Endpoints) > 0 {
+		if err = os.Setenv("ETCD_ENDPOINTS", strings.Join(cfg.Etcd.Endpoints, ",")); err != nil {
 			return err
 		}
 	}
@@ -244,22 +254,22 @@ func (cfg *Config) loadVirtDirs() error {
 
 // NewEtcdConfig .
 func (cfg *Config) NewEtcdConfig() (etcdcnf clientv3.Config, err error) {
-	etcdcnf.Endpoints = cfg.EtcdEndpoints
-	etcdcnf.Username = cfg.EtcdUsername
-	etcdcnf.Password = cfg.EtcdPassword
+	etcdcnf.Endpoints = cfg.Etcd.Endpoints
+	etcdcnf.Username = cfg.Etcd.Username
+	etcdcnf.Password = cfg.Etcd.Password
 	etcdcnf.TLS, err = cfg.newEtcdTLSConfig()
 	return
 }
 
 func (cfg *Config) newEtcdTLSConfig() (*tls.Config, error) {
-	if len(cfg.EtcdCA) < 1 || len(cfg.EtcdKey) < 1 || len(cfg.EtcdCert) < 1 {
+	if len(cfg.Etcd.CA) < 1 || len(cfg.Etcd.Key) < 1 || len(cfg.Etcd.Cert) < 1 {
 		return nil, nil //nolint
 	}
 
 	return transport.TLSInfo{
-		TrustedCAFile: cfg.EtcdCA,
-		KeyFile:       cfg.EtcdKey,
-		CertFile:      cfg.EtcdCert,
+		TrustedCAFile: cfg.Etcd.CA,
+		KeyFile:       cfg.Etcd.Key,
+		CertFile:      cfg.Etcd.Cert,
 	}.ClientConfig()
 }
 
