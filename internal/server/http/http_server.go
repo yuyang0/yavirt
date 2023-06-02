@@ -15,13 +15,14 @@ import (
 type HTTPServer struct {
 	*server.Server
 
+	Service    *server.Service
 	httpServer *http.Server
 }
 
 // Listen .
 func Listen(svc *server.Service) (srv *HTTPServer, err error) {
-	srv = &HTTPServer{}
-	if srv.Server, err = server.Listen(configs.Conf.BindHTTPAddr, svc); err != nil {
+	srv = &HTTPServer{Service: svc}
+	if srv.Server, err = server.Listen(configs.Conf.BindHTTPAddr); err != nil {
 		return
 	}
 

@@ -22,7 +22,7 @@ type GRPCServer struct {
 // Listen .
 func Listen(svc *server.Service) (srv *GRPCServer, err error) {
 	srv = &GRPCServer{}
-	if srv.Server, err = server.Listen(configs.Conf.BindGRPCAddr, svc); err != nil {
+	if srv.Server, err = server.Listen(configs.Conf.BindGRPCAddr); err != nil {
 		return
 	}
 

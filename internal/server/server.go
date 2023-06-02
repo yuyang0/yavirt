@@ -20,7 +20,6 @@ type Serverable interface {
 type Server struct {
 	Addr     string
 	Listener net.Listener
-	Service  *Service
 	Exit     struct {
 		sync.Once
 		Ch chan struct{}
@@ -28,8 +27,8 @@ type Server struct {
 }
 
 // Listen .
-func Listen(addr string, svc *Service) (srv *Server, err error) {
-	srv = &Server{Service: svc}
+func Listen(addr string) (srv *Server, err error) {
+	srv = &Server{}
 	srv.Exit.Ch = make(chan struct{}, 1)
 	srv.Listener, srv.Addr, err = srv.Listen(addr)
 	return
