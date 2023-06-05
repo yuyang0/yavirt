@@ -101,6 +101,10 @@ func (g *Guest) createEndpoint() (rollback func() error, err error) {
 	args.IPs = g.IPs
 	args.MAC = g.MAC
 	args.Hostname = hn
+	args.Namespace = hn
+	if ns, ok := g.JSONLabels["namespace"]; ok {
+		args.Namespace = ns
+	}
 
 	var rollCreate func()
 	args, rollCreate, err = hand.CreateEndpointNetwork(args)
@@ -112,6 +116,13 @@ func (g *Guest) createEndpoint() (rollback func() error, err error) {
 	}
 
 	g.EndpointID = args.EndpointID
+
+	// create network policy if necessary
+	if configs.Conf.Network.EnablePolicy {
+		if err = hand.CreateNetworkPolicy(g.JSONLabels); err != nil {
+			return
+		}
+	}
 
 	var unjoin func()
 	if unjoin, err = hand.JoinEndpointNetwork(args); err != nil {

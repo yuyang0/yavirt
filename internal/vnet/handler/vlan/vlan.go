@@ -79,3 +79,11 @@ func (h *Handler) GetCidr() string {
 	ip := vlannet.IP{Value: h.subnet, Subnet: &vlannet.Subnet{SubnetPrefix: 0}}
 	return ip.CIDR()
 }
+
+func (h *Handler) CreateNetworkPolicy(map[string]string) error {
+	return nil
+}
+
+func (h *Handler) DeleteNetworkPolicy(map[string]string) error {
+	return nil
+}

@@ -87,3 +87,7 @@ func (d *Driver) Ipam() *Ipam {
 func (d *Driver) WorkloadEndpoint() *WorkloadEndpoint {
 	return newWorkloadEndpoint(d)
 }
+
+func (d *Driver) Policy() *Policy {
+	return newPolicy(d)
+}

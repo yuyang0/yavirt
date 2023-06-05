@@ -96,15 +96,20 @@ type CNIConfig struct {
 	ConfigPath string `toml:"config_path"`
 }
 
+type NetworkConfig struct {
+	EnablePolicy bool `toml:"enable_policy"`
+}
+
 // Config .
 type Config struct {
 	Env string `toml:"env"`
 	// host-related config
-	Host   HostConfig  `toml:"host"`
-	Core   CoreConfig  `toml:"core"`
-	Etcd   ETCDConfig  `toml:"etcd"`
-	Calico CalicoCnfig `toml:"calico"`
-	CNI    CNIConfig   `toml:"cni"`
+	Host    HostConfig    `toml:"host"`
+	Core    CoreConfig    `toml:"core"`
+	Etcd    ETCDConfig    `toml:"etcd"`
+	Calico  CalicoCnfig   `toml:"calico"`
+	CNI     CNIConfig     `toml:"cni"`
+	Network NetworkConfig `toml:"network"`
 
 	ProfHTTPPort           int      `toml:"prof_http_port"`
 	BindHTTPAddr           string   `toml:"bind_http_addr"`

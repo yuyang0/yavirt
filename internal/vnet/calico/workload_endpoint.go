@@ -68,7 +68,7 @@ func (we *WorkloadEndpoint) get(args types.EndpointArgs) (cwe *libcaliapi.Worklo
 	}
 
 	etcd.RetryTimedOut(func() error { //nolint
-		cwe, err = we.WorkloadEndpoints().Get(context.Background(), args.Hostname, endpName, libcaliopt.GetOptions{})
+		cwe, err = we.WorkloadEndpoints().Get(context.Background(), args.Namespace, endpName, libcaliopt.GetOptions{})
 		if err != nil {
 			if _, ok := err.(libcalierr.ErrorResourceDoesNotExist); ok { //nolint
 				err = errors.Annotatef(errors.ErrCalicoEndpointNotExists, "%s on %s", endpName, args.Hostname)
@@ -119,7 +119,7 @@ func (we *WorkloadEndpoint) Delete(args types.EndpointArgs) error {
 	defer we.Unlock()
 
 	return etcd.RetryTimedOut(func() error {
-		if err := we.delete(endpName, args.Hostname); err != nil {
+		if err := we.delete(endpName, args.Namespace); err != nil {
 			if _, ok := err.(libcalierr.ErrorResourceDoesNotExist); !ok {
 				return err
 			}
@@ -156,7 +156,7 @@ func (we *WorkloadEndpoint) getCalicoWorkloadEndpoint(args types.EndpointArgs) (
 
 	wep := libcaliapi.NewWorkloadEndpoint()
 	wep.Name = endpName
-	wep.ObjectMeta.Namespace = args.Hostname
+	wep.ObjectMeta.Namespace = args.Namespace
 	wep.ObjectMeta.ResourceVersion = args.ResourceVersion
 	wep.Spec.Endpoint = args.EndpointID
 	wep.Spec.Node = args.Hostname
