@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"path/filepath"
@@ -17,6 +18,7 @@ import (
 	"github.com/projecteru2/yavirt/internal/vnet"
 	"github.com/projecteru2/yavirt/pkg/errors"
 	"github.com/projecteru2/yavirt/pkg/libvirt"
+	"github.com/projecteru2/yavirt/pkg/log"
 	"github.com/projecteru2/yavirt/pkg/utils"
 )
 
@@ -342,6 +344,7 @@ func (d *VirtDomain) render() ([]byte, error) {
 		"interface":         d.getInterfaceType(),
 		"pair":              d.guest.NetworkPairName(),
 		"mac":               d.guest.MAC,
+		"bandwidth":         d.networkBandwidth(),
 		"cache_passthrough": configs.Conf.VirtCPUCachePassthrough,
 	}
 
@@ -403,6 +406,33 @@ func (d *VirtDomain) gpus() []map[string]string {
 		res = append(res, r)
 	}
 	return res
+}
+
+func (d *VirtDomain) networkBandwidth() map[string]string {
+	// the Unit is kb/s
+	ans := map[string]string{
+		"average": "2000000",
+		"peak":    "3000000",
+	}
+	ss, ok := d.guest.JSONLabels["bandwidth"]
+	if !ok {
+		return ans
+	}
+
+	bandwidth := map[string]string{}
+	err := json.Unmarshal([]byte(ss), &bandwidth)
+	if err != nil {
+		// just print log and use default values.
+		log.Warnf("Invalid bandwidth label: %s", ss)
+	} else {
+		if v, ok := bandwidth["average"]; ok {
+			ans["average"] = v
+		}
+		if v, ok := bandwidth["peak"]; ok {
+			ans["peak"] = v
+		}
+	}
+	return ans
 }
 
 // GetXMLString .

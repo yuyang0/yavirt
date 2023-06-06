@@ -96,6 +96,12 @@
       <script path='/bin/true'/>
       {{end}}
       <model type='virtio'/>
+
+      <bandwidth>
+        <inbound average='{{index .bandwidth "average" }}' peak='{{index .bandwidth "peak" }}' />
+        <outbound average='{{index .bandwidth "average" }}' peak='{{index .bandwidth "peak" }}' />
+      </bandwidth>
+
     </interface>
     <serial type='pty'>
       <target port='0'/>
