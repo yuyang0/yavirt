@@ -11,10 +11,6 @@ import (
 	gputypes "github.com/yuyang0/resource-gpu/gpu/types"
 )
 
-var (
-	gpus *gputypes.NodeResource
-)
-
 type Class string
 
 const (
@@ -122,45 +118,42 @@ type Hardware struct {
 	Core    Core   `json:"core"`
 }
 
-func FetchGPUInfo() (ans *gputypes.NodeResource, err error) {
-	if gpus != nil {
-		return gpus, nil
-	}
-	// update global variable
-	defer func() {
-		if err == nil && gpus == nil {
-			gpus = ans
-		}
-	}()
-	pci, err := ghw.PCI()
-	if err != nil {
-		return nil, err
-	}
+func FetchGPUInfo() (*gputypes.NodeResource, error) {
+	hInfo.Lock()
+	defer hInfo.Unlock()
 
-	cmdOut, err := exec.Command("lshw", "-quiet", "-json", "-C", "display").Output()
-	if err != nil {
-		return nil, err
-	}
-	params := []map[string]any{}
-	if err = json.Unmarshal(cmdOut, &params); err != nil {
-		return nil, err
-	}
-	ans = gputypes.NewNodeResource(nil)
-	for _, param := range params {
-		businfo := param["businfo"].(string) //nolint
-		addr := strings.Split(businfo, "@")[1]
-		deviceInfo := pci.GetDevice(addr)
-		var numa string
-		if deviceInfo != nil && deviceInfo.Node != nil {
-			numa = fmt.Sprintf("%d", deviceInfo.Node.ID)
+	if hInfo.gpus == nil {
+		pci, err := ghw.PCI()
+		if err != nil {
+			return nil, err
 		}
-		info := gputypes.GPUInfo{
-			Address: strings.Split(businfo, "@")[1],
-			Product: param["product"].(string),
-			Vendor:  param["vendor"].(string),
-			NumaID:  numa,
+
+		cmdOut, err := exec.Command("lshw", "-quiet", "-json", "-C", "display").Output()
+		if err != nil {
+			return nil, err
 		}
-		ans.GPUMap[addr] = info
+		params := []map[string]any{}
+		if err = json.Unmarshal(cmdOut, &params); err != nil {
+			return nil, err
+		}
+		ans := gputypes.NewNodeResource(nil)
+		for _, param := range params {
+			businfo := param["businfo"].(string) //nolint
+			addr := strings.Split(businfo, "@")[1]
+			deviceInfo := pci.GetDevice(addr)
+			var numa string
+			if deviceInfo != nil && deviceInfo.Node != nil {
+				numa = fmt.Sprintf("%d", deviceInfo.Node.ID)
+			}
+			info := gputypes.GPUInfo{
+				Address: strings.Split(businfo, "@")[1],
+				Product: param["product"].(string),
+				Vendor:  param["vendor"].(string),
+				NumaID:  numa,
+			}
+			ans.GPUMap[addr] = info
+		}
+		hInfo.gpus = ans
 	}
-	return ans, nil
+	return hInfo.gpus, nil
 }
