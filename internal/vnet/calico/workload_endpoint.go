@@ -149,7 +149,7 @@ func (we *WorkloadEndpoint) getCalicoWorkloadEndpoint(args types.EndpointArgs) (
 		return nil, errors.Trace(err)
 	}
 
-	profile, err := we.getProfile()
+	profile, err := we.getProfile(args.IPPool)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -212,8 +212,8 @@ func (we *WorkloadEndpoint) convCalicoIPNetworks(ips []meta.IP) ([]string, error
 	return ipNets, nil
 }
 
-func (we *WorkloadEndpoint) getProfile() (string, error) {
-	var pool, err = we.getIPPool()
+func (we *WorkloadEndpoint) getProfile(poolName string) (string, error) {
+	var pool, err = we.getIPPool(poolName)
 	if err != nil {
 		return "", errors.Trace(err)
 	}

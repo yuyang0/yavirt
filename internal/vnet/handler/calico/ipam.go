@@ -16,14 +16,14 @@ func (h *Handler) NewIP(_, cidr string) (meta.IP, error) {
 }
 
 // AssignIP .
-func (h *Handler) AssignIP() (ip meta.IP, err error) {
+func (h *Handler) AssignIP(poolName string) (ip meta.IP, err error) {
 	h.Lock()
 	defer h.Unlock()
-	return h.assignIP(true)
+	return h.assignIP(true, poolName)
 }
 
-func (h *Handler) assignIP(crossCalicoBlocks bool) (ip meta.IP, err error) {
-	if ip, err = h.ipam().Assign(context.Background()); err != nil {
+func (h *Handler) assignIP(crossCalicoBlocks bool, poolName string) (ip meta.IP, err error) {
+	if ip, err = h.ipam().Assign(context.Background(), poolName); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -63,7 +63,7 @@ func (h *Handler) assignIP(crossCalicoBlocks bool) (ip meta.IP, err error) {
 		return nil, errors.Trace(err)
 	}
 
-	return h.assignIP(false)
+	return h.assignIP(false, poolName)
 }
 
 // ReleaseIPs .

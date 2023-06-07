@@ -25,13 +25,13 @@ func newIpam(driver *Driver) *Ipam {
 }
 
 // Assign .
-func (ipam *Ipam) Assign(_ context.Context) (meta.IP, error) {
+func (ipam *Ipam) Assign(_ context.Context, poolName string) (meta.IP, error) {
 	hn := configs.Hostname()
 
 	ipam.Lock()
 	defer ipam.Unlock()
 
-	ipn, err := ipam.getIPv4Net()
+	ipn, err := ipam.getIPv4Net(poolName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -85,8 +85,8 @@ func (ipam *Ipam) autoAssign(args libcaliipam.AutoAssignArgs) (ipv4s *libcaliipa
 	return
 }
 
-func (ipam *Ipam) getIPv4Net() (*libcalinet.IPNet, error) {
-	pool, err := ipam.getIPPool()
+func (ipam *Ipam) getIPv4Net(poolName string) (*libcalinet.IPNet, error) {
+	pool, err := ipam.getIPPool(poolName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -28,8 +28,8 @@ func (h *Handler) NewIP(_, _ string) (meta.IP, error) {
 }
 
 // AssignIP .
-func (h *Handler) AssignIP() (meta.IP, error) {
-	return h.ipam().Assign(context.Background())
+func (h *Handler) AssignIP(poolName string) (meta.IP, error) {
+	return h.ipam().Assign(context.Background(), poolName)
 }
 
 // ReleaseIPs .

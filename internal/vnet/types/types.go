@@ -13,6 +13,7 @@ type EndpointArgs struct {
 	Device          device.VirtLink
 	MAC             string
 	Hostname        string
+	IPPool          string
 	ResourceVersion string
 	UID             string
 	Profiles        []string

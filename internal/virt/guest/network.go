@@ -29,8 +29,9 @@ import (
 )
 
 const (
-	cniCmdAdd = "ADD"
-	cniCmdDel = "DEL"
+	cniCmdAdd            = "ADD"
+	cniCmdDel            = "DEL"
+	calicoIPPoolLabelKey = "calico/ippool"
 )
 
 // DisconnectExtraNetwork .
@@ -101,6 +102,7 @@ func (g *Guest) createEndpoint() (rollback func() error, err error) {
 	args.IPs = g.IPs
 	args.MAC = g.MAC
 	args.Hostname = hn
+	args.IPPool = g.JSONLabels[calicoIPPoolLabelKey]
 
 	var rollCreate func()
 	args, rollCreate, err = hand.CreateEndpointNetwork(args)
@@ -161,7 +163,8 @@ func (g *Guest) assignIP() (meta.IP, error) {
 		return nil, errors.Trace(err)
 	}
 
-	ip, err := hand.AssignIP()
+	poolName := g.JSONLabels[calicoIPPoolLabelKey]
+	ip, err := hand.AssignIP(poolName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -46,10 +46,11 @@ func NewDriver(configFile string, poolNames []string) (*Driver, error) {
 	return driver, nil
 }
 
-func (d *Driver) getIPPool() (calitype.IPPool, error) {
-	var pool calitype.IPPool
-
-	var pools, err = d.IPPools().List(context.Background(), options.ListOptions{})
+func (d *Driver) getIPPool(poolName string) (pool *calitype.IPPool, err error) {
+	if poolName != "" {
+		return d.IPPools().Get(context.Background(), poolName, options.GetOptions{})
+	}
+	pools, err := d.IPPools().List(context.Background(), options.ListOptions{})
 	switch {
 	case err != nil:
 		return pool, errors.Trace(err)
@@ -58,12 +59,12 @@ func (d *Driver) getIPPool() (calitype.IPPool, error) {
 	}
 
 	if len(d.poolNames) < 1 {
-		return pools.Items[0], nil
+		return &pools.Items[0], nil
 	}
 
-	for _, pool = range pools.Items {
-		if _, exists := d.poolNames[pool.Name]; exists {
-			return pool, nil
+	for _, p := range pools.Items {
+		if _, exists := d.poolNames[p.Name]; exists {
+			return &p, nil
 		}
 	}
 

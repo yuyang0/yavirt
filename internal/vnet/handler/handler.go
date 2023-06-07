@@ -8,7 +8,7 @@ import (
 
 // Handler .
 type Handler interface {
-	AssignIP() (meta.IP, error)
+	AssignIP(poolName string) (meta.IP, error)
 	ReleaseIPs(ips ...meta.IP) error
 	QueryIPv4(ipv4 string) (meta.IP, error)
 	QueryIPs(meta.IPNets) ([]meta.IP, error)

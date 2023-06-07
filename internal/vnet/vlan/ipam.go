@@ -26,7 +26,7 @@ func NewIpam(guestID string, subnet int64) *Ipam {
 }
 
 // Assign .
-func (ipam *Ipam) Assign(ctx context.Context) (ip meta.IP, err error) {
+func (ipam *Ipam) Assign(ctx context.Context, _ string) (ip meta.IP, err error) {
 	var unlock utils.Unlocker
 	if unlock, err = ipam.Lock(ctx); err != nil {
 		return nil, errors.Trace(err)

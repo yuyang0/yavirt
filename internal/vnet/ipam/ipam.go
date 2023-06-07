@@ -8,7 +8,7 @@ import (
 
 // Ipam .
 type Ipam interface {
-	Assign(ctx context.Context) (meta.IP, error)
+	Assign(ctx context.Context, poolName string) (meta.IP, error)
 	Release(context.Context, ...meta.IP) error
 	Query(context.Context, meta.IPNets) ([]meta.IP, error)
 }
