@@ -14,6 +14,7 @@ type EndpointArgs struct {
 	MAC             string
 	Hostname        string
 	IPPool          string
+	Namespace       string
 	ResourceVersion string
 	UID             string
 	Profiles        []string

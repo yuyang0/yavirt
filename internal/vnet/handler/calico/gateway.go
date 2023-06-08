@@ -141,6 +141,8 @@ func (h *Handler) loadGateway() error {
 
 	var args types.EndpointArgs
 	args.Hostname = hn
+	//TODO: better way to set namespace here
+	args.Namespace = hn
 	args.EndpointID = configs.Conf.Calico.GatewayName
 
 	wep, err := h.cali.WorkloadEndpoint().Get(args)
