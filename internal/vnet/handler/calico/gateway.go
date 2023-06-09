@@ -101,6 +101,8 @@ func (h *Handler) addGatewayEndpoint(ip meta.IP) error {
 	args.Device = h.gateway
 	args.MAC = h.gateway.MAC()
 	args.Hostname = hn
+	// TODO better way to set namespace
+	args.Namespace = hn
 	args.EndpointID = configs.Conf.Calico.GatewayName
 
 	gwIPs, err := h.gatewayIPs()
