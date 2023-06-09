@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 
 	pb "github.com/projecteru2/libyavirt/grpc/gen"
 	"github.com/projecteru2/yavirt/configs"
@@ -27,6 +28,7 @@ func Listen(svc *server.Service) (srv *GRPCServer, err error) {
 	}
 
 	srv.server = grpc.NewServer()
+	reflection.Register(srv.server)
 	srv.app = &GRPCYavirtd{service: svc}
 
 	return
