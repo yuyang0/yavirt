@@ -63,3 +63,6 @@ endpoints = ["http://127.0.0.1:2379"]
 gateway = "yavirt-cali-gw"
 pools = ["clouddev"]
 etcd_env = "ETCD_ENDPOINTS"
+
+[network]
+ifname_prefix = "yap"

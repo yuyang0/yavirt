@@ -96,15 +96,20 @@ type CNIConfig struct {
 	ConfigPath string `toml:"config_path"`
 }
 
+type NetworkConfig struct {
+	IFNamePrefix string `toml:"ifname_prefix"`
+}
+
 // Config .
 type Config struct {
 	Env string `toml:"env"`
 	// host-related config
-	Host   HostConfig  `toml:"host"`
-	Core   CoreConfig  `toml:"core"`
-	Etcd   ETCDConfig  `toml:"etcd"`
-	Calico CalicoCnfig `toml:"calico"`
-	CNI    CNIConfig   `toml:"cni"`
+	Host    HostConfig    `toml:"host"`
+	Core    CoreConfig    `toml:"core"`
+	Etcd    ETCDConfig    `toml:"etcd"`
+	Calico  CalicoCnfig   `toml:"calico"`
+	CNI     CNIConfig     `toml:"cni"`
+	Network NetworkConfig `toml:"network"`
 
 	ProfHTTPPort           int      `toml:"prof_http_port"`
 	BindHTTPAddr           string   `toml:"bind_http_addr"`
@@ -234,6 +239,10 @@ func (cfg *Config) Prepare(c *cli.Context) (err error) {
 	}
 	if len(cfg.Core.Addrs) == 0 {
 		return errors.New("Core addresses are needed")
+	}
+	// network
+	if cfg.Host.NetworkMode == "calico" {
+		cfg.Network.IFNamePrefix = "cali"
 	}
 	return cfg.loadVirtDirs()
 }

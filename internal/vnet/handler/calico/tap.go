@@ -3,6 +3,7 @@ package calico
 import (
 	"fmt"
 
+	"github.com/projecteru2/yavirt/configs"
 	"github.com/projecteru2/yavirt/internal/vnet/device"
 	"github.com/projecteru2/yavirt/pkg/errors"
 	"github.com/projecteru2/yavirt/pkg/utils"
@@ -38,7 +39,7 @@ func (h *Handler) randTapName() (string, error) {
 		return "", errors.Trace(err)
 	}
 
-	var name = fmt.Sprintf("yap%s", endpID[:utils.Min(12, len(endpID))])
+	var name = fmt.Sprintf("%s%s", configs.Conf.Network.IFNamePrefix, endpID[:utils.Min(12, len(endpID))])
 
 	return name, nil
 }
