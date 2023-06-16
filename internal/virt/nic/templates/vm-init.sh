@@ -15,12 +15,19 @@ do
 [Match]
 Name=$ifname
 
-[Network]
-Gateway=$gw_addr
+# [Network]
+# Gateway=$gw_addr
 
 [Address]
 Address=$ip_addr
+
+[Route]
+Gateway=$gw_addr
+# Destination=10.0.0.0/8
+GatewayOnlink=yes
 EOF
+    # ip route add 169.254.1.1 dev $ifname scope link
+    # ip route add default via 169.254.1.1 dev $ifname
     shift 2
 done
 

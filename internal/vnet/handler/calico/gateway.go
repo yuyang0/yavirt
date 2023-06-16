@@ -93,44 +93,6 @@ func (h *Handler) bindGatewayIPs(ips ...meta.IP) error {
 	return nil
 }
 
-func (h *Handler) addGatewayEndpoint(ip meta.IP) error {
-	hn := configs.Hostname()
-
-	var args types.EndpointArgs
-	args.IPs = []meta.IP{ip}
-	args.Device = h.gateway
-	args.MAC = h.gateway.MAC()
-	args.Hostname = hn
-	// TODO better way to set namespace
-	args.Namespace = hn
-	args.EndpointID = configs.Conf.Calico.GatewayName
-
-	gwIPs, err := h.gatewayIPs()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	var cwe *libcaliapi.WorkloadEndpoint
-
-	if len(gwIPs) > 0 {
-		args.IPs = append(args.IPs, gwIPs...)
-		args.ResourceVersion = h.gatewayWorkloadEndpoint.ObjectMeta.ResourceVersion
-		args.UID = string(h.gatewayWorkloadEndpoint.ObjectMeta.UID)
-		args.Profiles = h.gatewayWorkloadEndpoint.Spec.Profiles
-		cwe, err = h.cali.WorkloadEndpoint().Update(args)
-	} else {
-		cwe, err = h.cali.WorkloadEndpoint().Create(args)
-	}
-
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	h.gatewayWorkloadEndpoint = cwe
-
-	return nil
-}
-
 // RefreshGateway refreshes gateway data.
 func (h *Handler) RefreshGateway() error {
 	h.Lock()
@@ -191,10 +153,6 @@ func (h *Handler) isUnderGateway(gatewayIP, ip meta.IP) bool {
 	ipn.IP = gatewayIP.NetIP()
 	ipn.Mask = net.CIDRMask(ip.Prefix(), net.IPv4len*8)
 	return ipn.Contains(ip.NetIP())
-}
-
-func (h *Handler) isCalicoGatewayIPNotExistsErr(err error) bool {
-	return errors.Contain(err, errors.ErrCalicoGatewayIPNotExists)
 }
 
 func (h *Handler) gatewayIPs() (ips []meta.IP, err error) {

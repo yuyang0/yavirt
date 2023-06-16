@@ -24,9 +24,9 @@ func (svc *Service) setupCalico() error {
 		return errors.Trace(err)
 	}
 
-	if err := svc.caliHandler.InitGateway(configs.Conf.Calico.GatewayName); err != nil {
-		return errors.Trace(err)
-	}
+	// if err := svc.caliHandler.InitGateway(configs.Conf.Calico.GatewayName); err != nil {
+	// 	return errors.Trace(err)
+	// }
 
 	return nil
 }

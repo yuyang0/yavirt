@@ -133,7 +133,7 @@ func setupCalico() (err error) {
 	}
 
 	runtime.CalicoHandler = calihandler.New(runtime.Device, runtime.CalicoDriver, configs.Conf.Calico.PoolNames, outboundIP)
-	err = runtime.CalicoHandler.InitGateway(configs.Conf.Calico.GatewayName)
+	// err = runtime.CalicoHandler.InitGateway(configs.Conf.Calico.GatewayName)
 
 	return
 }
