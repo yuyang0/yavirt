@@ -49,6 +49,12 @@ func (g *Guest) ConnectExtraNetwork(_, _ string) (ip meta.IP, err error) {
 
 // CreateEthernet .
 func (g *Guest) CreateEthernet() (rollback func() error, err error) {
+	// Create network policy if neccessary
+	// TODO: maybe we can create network policy when create new user.
+	if err = g.createNetworkPolicy(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	if g.EnabledCalicoCNI {
 		return g.calicoCNICreate()
 	}
@@ -88,6 +94,18 @@ func (g *Guest) CreateEthernet() (rollback func() error, err error) {
 
 		return err
 	}, nil
+}
+
+func (g *Guest) createNetworkPolicy() (err error) {
+	ns := g.JSONLabels[calicoNSLabelKey]
+	if ns == "" {
+		ns = configs.Hostname()
+	}
+	hand, err := g.calicoHandler()
+	if err != nil {
+		return err
+	}
+	return hand.CreateNetworkPolicy(ns)
 }
 
 func (g *Guest) createEndpoint() (rollback func() error, err error) {
@@ -268,7 +286,7 @@ func (g *Guest) calicoCNICreate() (func() error, error) {
 	endpointID = strings.ReplaceAll(endpointID, "-", "")
 
 	g.EndpointID = endpointID
-	g.NetworkPair = "yap" + g.EndpointID[:utils.Min(12, len(g.EndpointID))]
+	g.NetworkPair = configs.Conf.Network.IFNamePrefix + g.EndpointID[:utils.Min(12, len(g.EndpointID))]
 
 	stdout, execDel, err := g.calicoCNIAdd(true)
 	if err != nil {

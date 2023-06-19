@@ -47,9 +47,7 @@ func (we *Policy) Create(ns string) (cwe *apiv3.NetworkPolicy, err error) {
 	we.Lock()
 	defer we.Unlock()
 
-	if cwe, err = we.getCalicoNetworkPolicy(ns); err != nil {
-		return nil, errors.Trace(err)
-	}
+	cwe = we.genCalicoNetworkPolicy(ns)
 
 	err = etcd.RetryTimedOut(func() error {
 		var created, ce = we.NetworkPolicies().Create(context.Background(), cwe, libcaliopt.SetOptions{})
@@ -88,26 +86,35 @@ func (we *Policy) Delete(ns string) error {
 	}, 3)
 }
 
-// apiVersion: crd.projectcalico.org/v1
+// apiVersion: projectcalico.org/v3
 // kind: NetworkPolicy
 // metadata:
 //
-//	name: deny-namespaces
-//	namespace: ns1
+//	name: allow-pool2
+//	namespace: testpool2
 //
 // spec:
 //
 //	types:
-//	- Ingress
-//	- Egress
+//	  - Ingress
+//	  - Egress
 //	ingress:
-//	- action: Allow
-//	  protocol: TCP
-//	  source:
-//	    namespaceSelector: name == 'test2'
+//	  - action: Allow
+//	    source:
+//	      selector: projectcalico.org/namespace == 'testpool2'
+//	  - action: Allow
+//	    source:
+//	      notNets:
+//	        - '10.0.0.0/8'
 //	egress:
-//	- action: Allow
-func (we *Policy) getCalicoNetworkPolicy(ns string) (*apiv3.NetworkPolicy, error) {
+//	  - action: Allow
+//	    destination:
+//	      selector: projectcalico.org/namespace == 'testpool2'
+//	  - action: Allow
+//	    destination:
+//	      notNets:
+//	        - '10.0.0.0/8'
+func (we *Policy) genCalicoNetworkPolicy(ns string) *apiv3.NetworkPolicy {
 	p := apiv3.NewNetworkPolicy()
 	p.Name = policyName
 
@@ -116,17 +123,36 @@ func (we *Policy) getCalicoNetworkPolicy(ns string) (*apiv3.NetworkPolicy, error
 	p.Spec.Ingress = []apiv3.Rule{
 		{
 			Action: apiv3.Allow,
-			// Protocol: &numorstring.ProtocolTCP,
 			Source: apiv3.EntityRule{
-				NamespaceSelector: fmt.Sprintf("name == '%s'", ns),
+				Selector: fmt.Sprintf("projectcalico.org/namespace == '%s'", ns),
+			},
+		},
+		{
+			Action: apiv3.Allow,
+			Source: apiv3.EntityRule{
+				NotNets: []string{
+					"10.0.0.0/8",
+					"192.168.0.0/16",
+				},
 			},
 		},
 	}
 	p.Spec.Egress = []apiv3.Rule{
 		{
 			Action: apiv3.Allow,
+			Destination: apiv3.EntityRule{
+				Selector: fmt.Sprintf("projectcalico.org/namespace == '%s'", ns),
+			},
+		},
+		{
+			Action: apiv3.Allow,
+			Destination: apiv3.EntityRule{
+				NotNets: []string{
+					"10.0.0.0/8",
+					"192.168.0.0/16",
+				},
+			},
 		},
 	}
-
-	return p, nil
+	return p
 }

@@ -1,23 +1,10 @@
 package calico
 
-func (h *Handler) CreateNetworkPolicy(labels map[string]string) (err error) {
-	ns, ok := labels["namespace"]
-	if ok {
-		_, err = h.cali.Policy().Create(ns)
-		if err != nil {
-			return
-		}
-	}
+func (h *Handler) CreateNetworkPolicy(ns string) (err error) {
+	_, err = h.cali.Policy().Create(ns)
 	return
 }
 
-func (h *Handler) DeleteNetworkPolicy(labels map[string]string) (err error) {
-	ns, ok := labels["namespace"]
-	if ok {
-		err = h.cali.Policy().Delete(ns)
-		if err != nil {
-			return
-		}
-	}
-	return
+func (h *Handler) DeleteNetworkPolicy(ns string) (err error) {
+	return h.cali.Policy().Delete(ns)
 }
