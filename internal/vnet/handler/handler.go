@@ -19,6 +19,6 @@ type Handler interface {
 
 	GetEndpointDevice(devName string) (device.VirtLink, error)
 
-	CreateNetworkPolicy(map[string]string) error
-	DeleteNetworkPolicy(map[string]string) error
+	CreateNetworkPolicy(string) error
+	DeleteNetworkPolicy(string) error
 }

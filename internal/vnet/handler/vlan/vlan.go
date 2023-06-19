@@ -80,10 +80,10 @@ func (h *Handler) GetCidr() string {
 	return ip.CIDR()
 }
 
-func (h *Handler) CreateNetworkPolicy(map[string]string) error {
+func (h *Handler) CreateNetworkPolicy(string) error {
 	return nil
 }
 
-func (h *Handler) DeleteNetworkPolicy(map[string]string) error {
+func (h *Handler) DeleteNetworkPolicy(string) error {
 	return nil
 }
