@@ -49,7 +49,7 @@ func (g *Guest) ConnectExtraNetwork(_, _ string) (ip meta.IP, err error) {
 
 // CreateEthernet .
 func (g *Guest) CreateEthernet() (rollback func() error, err error) {
-	// Create network policy if neccessary
+	// Create network policy if necessary
 	// TODO: maybe we can create network policy when create new user.
 	if err = g.createNetworkPolicy(); err != nil {
 		return nil, errors.Trace(err)

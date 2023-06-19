@@ -134,7 +134,7 @@ func (m Manager) Stop(ctx context.Context, id string, force bool) error {
 			return nil, errors.Trace(err)
 		}
 
-		return nil, nil
+		return nil, nil //nolint
 	}
 	_, err := m.do(ctx, id, shutOp, do, nil)
 	return err
@@ -164,8 +164,7 @@ func (m Manager) Start(ctx context.Context, id string) error {
 				return nil, errors.Trace(err)
 			}
 		}
-
-		return nil, nil
+		return nil, nil //nolint
 	}
 	defer log.Debugf("exit manager.Start")
 	_, err := m.do(ctx, id, bootOp, do, nil)
