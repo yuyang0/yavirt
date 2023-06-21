@@ -65,6 +65,20 @@ func (s *apiServer) StartGuest(c *gin.Context) {
 	})
 }
 
+func (s *apiServer) SuspendGuest(c *gin.Context) {
+	var req types.GuestReq
+	s.dispatchMsg(c, &req, func(ctx context.Context) error {
+		return s.service.ControlGuest(ctx, req.VirtID(), types.OpSuspend, false)
+	})
+}
+
+func (s *apiServer) ResumeGuest(c *gin.Context) {
+	var req types.GuestReq
+	s.dispatchMsg(c, &req, func(ctx context.Context) error {
+		return s.service.ControlGuest(ctx, req.VirtID(), types.OpResume, false)
+	})
+}
+
 func (s *apiServer) CreateGuest(c *gin.Context) {
 	var req types.CreateGuestReq
 

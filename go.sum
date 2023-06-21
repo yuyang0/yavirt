@@ -329,8 +329,8 @@ github.com/projectcalico/go-yaml-wrapper v0.0.0-20191112210931-090425220c54 h1:J
 github.com/projectcalico/go-yaml-wrapper v0.0.0-20191112210931-090425220c54/go.mod h1:UgC0aTQ2KMDxlX3lU/stndk7DMUBJqzN40yFiILHgxc=
 github.com/projecteru2/core v0.0.0-20230512041401-f4113e25d62c h1:ovxsd205M4RZfAtPBHiUh34sDmz/ARSktYrgXXdRYRQ=
 github.com/projecteru2/core v0.0.0-20230512041401-f4113e25d62c/go.mod h1:zpMzjZ0hohaoB2jLsbhBsJ0KQlL10WVORpj5/BKqTtw=
-github.com/projecteru2/libyavirt v0.0.0-20230524090109-0faf050e0f3b h1:mXvbNYdr2uh2mhk5HdiBBSc9DhaR2RuulURaXhJaP2I=
-github.com/projecteru2/libyavirt v0.0.0-20230524090109-0faf050e0f3b/go.mod h1:N41KaKmqbailweGs4x/mt2H0O0Y7MizObZQ+igLdzpw=
+github.com/projecteru2/libyavirt v0.0.0-20230621022259-e798b2969904 h1:KgaPYYF7kMWKHIlZgsY62wFMF/zJCtW/dDu27FVFCGc=
+github.com/projecteru2/libyavirt v0.0.0-20230621022259-e798b2969904/go.mod h1:N41KaKmqbailweGs4x/mt2H0O0Y7MizObZQ+igLdzpw=
 github.com/projecteru2/resource-storage v0.0.0-20230206062354-d828802f6b96 h1:mt8llWHpuOhPMIe7sOxr5jqYrVk4wE6eZ3cyAkj0+7o=
 github.com/projecteru2/resource-storage v0.0.0-20230206062354-d828802f6b96/go.mod h1:sdXwl7dPfO3UH8PPr7ELvEutJSAjOQOGlmkenfL6DfU=
 github.com/prometheus/client_golang v1.15.0 h1:5fCgGYogn0hFdhyhLbw7hEsWxufKtY9klyvdNfFlFhM=

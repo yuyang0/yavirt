@@ -28,6 +28,8 @@ func newAPIHandler(svc *server.Service) http.Handler {
 		v1.POST("/guests/stop", api.StopGuest)
 		v1.POST("/guests/start", api.StartGuest)
 		v1.POST("/guests/destroy", api.DestroyGuest)
+		v1.POST("/guests/suspend", api.SuspendGuest)
+		v1.POST("/guests/resume", api.ResumeGuest)
 		v1.POST("/guests/execute", api.ExecuteGuest)
 		v1.POST("/guests/resize", api.ResizeGuest)
 		v1.POST("/guests/capture", api.CaptureGuest)

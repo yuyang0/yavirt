@@ -257,6 +257,10 @@ func (svc *Service) ControlGuest(ctx context.Context, id, operation string, forc
 		err = svc.guest.Stop(ctx, id, force)
 	case types.OpDestroy:
 		_, err = svc.guest.Destroy(ctx, id, force)
+	case types.OpSuspend:
+		err = svc.guest.Suspend(ctx, id)
+	case types.OpResume:
+		err = svc.guest.Resume(ctx, id)
 	}
 
 	if err != nil {
