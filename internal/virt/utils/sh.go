@@ -43,3 +43,14 @@ func Check(ctx context.Context, volPath string) error {
 func Repair(ctx context.Context, volPath string) error {
 	return sh.ExecContext(ctx, "qemu-img", "check", "-r", "all", volPath)
 }
+
+// Write an image to a block device
+func WriteImageToBlockDevice(ctx context.Context, imgPath string, device string) error {
+	// two methods
+	// qemu-img convert -f qcow2 -O raw my-qcow2.img /dev/sdb
+	// qemu-img dd -f qcow2 -O raw bs=4M if=/vm-images/image.qcow2 of=/dev/sdd1
+	//
+	// for Ceph RBD, use following command:
+	//    qemu-img convert -f qcow2 -O raw debian_squeeze.qcow2 rbd:data/squeeze
+	return sh.ExecContext(ctx, "qemu-img", "convert", "-f", "qcow2", "-O", "raw", imgPath, device)
+}
