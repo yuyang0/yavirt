@@ -6,6 +6,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"time"
 
 	_ "embed"
@@ -372,21 +373,45 @@ func (d *VirtDomain) getInterfaceType() string {
 	}
 }
 
-func (d *VirtDomain) dataVols(vols models.Volumes) []map[string]string {
-	var dat = []map[string]string{}
+func (d *VirtDomain) dataVols(vols models.Volumes) []map[string]any {
+	var dat = []map[string]any{}
+
+	// prepare monitor addresses
+	cephMonitorAddrs := []map[string]string{}
+	for _, addr := range configs.Conf.Storage.Ceph.MonitorAddrs {
+		parts := strings.Split(addr, ":")
+		d := map[string]string{
+			"host": parts[0],
+			"port": parts[1],
+		}
+		cephMonitorAddrs = append(cephMonitorAddrs, d)
+	}
 
 	for i, v := range vols {
 		if v.IsSys() {
 			continue
 		}
-
-		d := map[string]string{
-			"path":       v.Filepath(),
-			"dev":        v.GetDeviceName(i),
-			"read_iops":  fmt.Sprintf("%d", v.IOContraints.ReadIOPS),
-			"write_iops": fmt.Sprintf("%d", v.IOContraints.WriteIOPS),
-			"read_bps":   fmt.Sprintf("%d", v.IOContraints.ReadBPS),
-			"write_bps":  fmt.Sprintf("%d", v.IOContraints.WriteBPS),
+		var d map[string]any
+		switch v.Type {
+		case models.VolDataType:
+			d = map[string]any{
+				"isRBD":      false,
+				"path":       v.Filepath(),
+				"dev":        v.GetDeviceName(i),
+				"read_iops":  fmt.Sprintf("%d", v.IOContraints.ReadIOPS),
+				"write_iops": fmt.Sprintf("%d", v.IOContraints.WriteIOPS),
+				"read_bps":   fmt.Sprintf("%d", v.IOContraints.ReadBPS),
+				"write_bps":  fmt.Sprintf("%d", v.IOContraints.WriteBPS),
+			}
+		case models.VolRBDType:
+			d = map[string]any{
+				"isRBD":        true,
+				"path":         v.Filepath(),
+				"dev":          v.GetDeviceName(i),
+				"monitorAddrs": cephMonitorAddrs,
+				"username":     configs.Conf.Storage.Ceph.Username,
+				"secretUUID":   configs.Conf.Storage.Ceph.SecretUUID,
+			}
 		}
 		dat = append(dat, d)
 	}

@@ -36,6 +36,8 @@ const (
 	VolDataType = "dat"
 	// VolSysType .
 	VolSysType = "sys"
+	// VolRBDType
+	VolRBDType = "rbd"
 	// VolQcow2Format .
 	VolQcow2Format = "qcow2"
 

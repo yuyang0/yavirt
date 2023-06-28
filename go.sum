@@ -327,8 +327,8 @@ github.com/projectcalico/go-json v0.0.0-20161128004156-6219dc7339ba h1:aaF2byUCZ
 github.com/projectcalico/go-json v0.0.0-20161128004156-6219dc7339ba/go.mod h1:q8EdCgBdMQzgiX/uk4GXLWLk+gIHd1a7mWUAamJKDb4=
 github.com/projectcalico/go-yaml-wrapper v0.0.0-20191112210931-090425220c54 h1:Jt2Pic9dxgJisekm8q2WV9FaWxUJhhRfwHSP640drww=
 github.com/projectcalico/go-yaml-wrapper v0.0.0-20191112210931-090425220c54/go.mod h1:UgC0aTQ2KMDxlX3lU/stndk7DMUBJqzN40yFiILHgxc=
-github.com/projecteru2/core v0.0.0-20230512041401-f4113e25d62c h1:ovxsd205M4RZfAtPBHiUh34sDmz/ARSktYrgXXdRYRQ=
-github.com/projecteru2/core v0.0.0-20230512041401-f4113e25d62c/go.mod h1:zpMzjZ0hohaoB2jLsbhBsJ0KQlL10WVORpj5/BKqTtw=
+github.com/projecteru2/core v0.0.0-20230606024007-b4db1600e120 h1:uZ0Y+u8/jHPpqnqE+M5kMJNTh1KEbIa1Jg7estpvBkg=
+github.com/projecteru2/core v0.0.0-20230606024007-b4db1600e120/go.mod h1:jv+iO2nWa734WHH3WfBFhMgBvWyCQa/VjQCS5dz/6uI=
 github.com/projecteru2/libyavirt v0.0.0-20230621022259-e798b2969904 h1:KgaPYYF7kMWKHIlZgsY62wFMF/zJCtW/dDu27FVFCGc=
 github.com/projecteru2/libyavirt v0.0.0-20230621022259-e798b2969904/go.mod h1:N41KaKmqbailweGs4x/mt2H0O0Y7MizObZQ+igLdzpw=
 github.com/projecteru2/resource-storage v0.0.0-20230206062354-d828802f6b96 h1:mt8llWHpuOhPMIe7sOxr5jqYrVk4wE6eZ3cyAkj0+7o=
@@ -386,8 +386,9 @@ github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/
 github.com/stretchr/testify v1.7.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/stretchr/testify v1.8.0/go.mod h1:yNjHg4UonilssWZ8iaSj1OCr/vHnekPRkoO+kdMU+MU=
 github.com/stretchr/testify v1.8.1/go.mod h1:w2LPCIKwWwSfY2zedu0+kehJoqGctiVI29o6fzry7u4=
-github.com/stretchr/testify v1.8.2 h1:+h33VjcLVPDHtOdpUCuF+7gSuG3yGIftsP1YvFihtJ8=
 github.com/stretchr/testify v1.8.2/go.mod h1:w2LPCIKwWwSfY2zedu0+kehJoqGctiVI29o6fzry7u4=
+github.com/stretchr/testify v1.8.4 h1:CcVxjf3Q8PM0mHUKJCdn+eZZtm5yQwehR5yeSVQQcUk=
+github.com/stretchr/testify v1.8.4/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXlSw2iwfAo=
 github.com/twitchyliquid64/golang-asm v0.15.1 h1:SU5vSMR7hnwNxj24w34ZyCi/FmDZTkS4MhqMhdFk5YI=
 github.com/twitchyliquid64/golang-asm v0.15.1/go.mod h1:a1lVb/DtPvCB8fslRZhAngC2+aY1QWCk3Cedj/Gdt08=
 github.com/ugorji/go v1.1.4/go.mod h1:uQMGLiO92mf5W77hV/PUCpI3pbzQx3CRekS0kk+RGrc=
@@ -424,6 +425,8 @@ github.com/yuin/goldmark v1.2.1/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9dec
 github.com/yuin/goldmark v1.3.5/go.mod h1:mwnBkeHKe2W/ZEtQ+71ViKU8L12m81fl3OWwC1Zlc8k=
 github.com/yuyang0/resource-gpu v0.0.0-20230526041455-b8e714460a64 h1:v/1ED29Aj08duhdCr8B1smFbAveaTqmd2L7n8Swq15o=
 github.com/yuyang0/resource-gpu v0.0.0-20230526041455-b8e714460a64/go.mod h1:hUlH94HyqQjF0WvkSGGwwAaDQc+MkT/pzAeA+cfKdm8=
+github.com/yuyang0/resource-rbd v0.0.2-0.20230626092358-f8ff4bd3fba7 h1:kytZYzvVyh0bav3oucFdcyGs41+i4XlhgJo/0lg/gQ0=
+github.com/yuyang0/resource-rbd v0.0.2-0.20230626092358-f8ff4bd3fba7/go.mod h1:ANjyr7r+YfKtpWiIsZPzF7+krI55Uf84R9AvbNr5WAg=
 go.etcd.io/etcd v3.3.27+incompatible h1:5hMrpf6REqTHV2LW2OclNpRtxI0k9ZplMemJsMSWju0=
 go.etcd.io/etcd v3.3.27+incompatible/go.mod h1:yaeTdrJi5lOmYerz05bd8+V7KubZs8YSFZfzsF9A6aI=
 go.etcd.io/etcd/api/v3 v3.5.8 h1:Zf44zJszoU7zRV0X/nStPenegNXoFDWcB/MwrJbA+L4=

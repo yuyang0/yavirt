@@ -14,16 +14,17 @@ require (
 	github.com/libvirt/libvirt-go v7.4.0+incompatible
 	github.com/projectcalico/api v0.0.0-20230222223746-44aa60c2201f
 	github.com/projectcalico/calico v1.11.0-cni-plugin.0.20230510161715-15d193738928
-	github.com/projecteru2/core v0.0.0-20230512041401-f4113e25d62c
+	github.com/projecteru2/core v0.0.0-20230606024007-b4db1600e120
 	github.com/projecteru2/libyavirt v0.0.0-20230621022259-e798b2969904
 	github.com/projecteru2/resource-storage v0.0.0-20230206062354-d828802f6b96
 	github.com/prometheus/client_golang v1.15.0
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/sirupsen/logrus v1.9.0
-	github.com/stretchr/testify v1.8.2
+	github.com/stretchr/testify v1.8.4
 	github.com/urfave/cli/v2 v2.25.1
 	github.com/vishvananda/netlink v1.2.1-beta.2.0.20230206183746-70ca0345eede
 	github.com/yuyang0/resource-gpu v0.0.0-20230526041455-b8e714460a64
+	github.com/yuyang0/resource-rbd v0.0.2-0.20230626092358-f8ff4bd3fba7
 	go.etcd.io/etcd v3.3.27+incompatible
 	go.etcd.io/etcd/client/v3 v3.5.8
 	golang.org/x/exp v0.0.0-20230425010034-47ecfdc1ba53

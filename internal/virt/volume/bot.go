@@ -79,6 +79,9 @@ func newSnapshot(snapmod *models.Snapshot) snapshot.Interface {
 }
 
 func (v *bot) Undefine() error {
+	if v.vol.Type != models.VolDataType && v.vol.Type != models.VolSysType {
+		return nil
+	}
 	return sh.Remove(v.vol.Filepath())
 }
 
@@ -309,6 +312,48 @@ func (v *bot) format(ctx context.Context, ga agent.Interface, devPath string) er
 	return ga.Touch(ctx, v.formattedFlagPath())
 }
 
+// Resize root partition
+// mainly used to expand system volumn
+func (v *bot) ResizeRootPartition(ctx context.Context, ga agent.Interface, devPath string) error {
+	var st = <-ga.ExecOutput(ctx, "df")
+	so, se, err := st.Stdio()
+	if err != nil {
+		return errors.Annotatef(err, "run `df` failed: %s", string(se))
+	}
+	lines := strings.Split(string(so), "\n")
+	rootDev := ""
+	pidx := "" // partiton index
+	for _, line := range lines {
+		parts := strings.Fields(line)
+		if len(parts) != 6 {
+			continue
+		}
+		if parts[5] == "/" {
+			rootDev = parts[0]
+		}
+	}
+	if len(rootDev) > 0 {
+		idx := len(rootDev) - 1
+		for idx >= 0 {
+			if rootDev[idx] >= '0' && rootDev[idx] <= '9' {
+				idx--
+			}
+		}
+		devPath = rootDev[:idx+1]
+		pidx = rootDev[idx+1:]
+	}
+	if len(rootDev) == 0 || len(pidx) == 0 {
+		return errors.Errorf("Can't find root dev or sn: %s", rootDev)
+	}
+	var cmds = [][]string{
+		// {"parted", "-s", devPath, "resizepart", pidx, "100%"},
+		// Just need to run `parted devPath resizepart pidx 100%`, but parted prompt,so use pipeline here
+		{"bash", "-c", fmt.Sprintf("echo 'Y' | sudo parted ---pretend-input-tty %s resizepart %s %s", devPath, pidx, "100%")},
+		{"resize2fs", rootDev},
+	}
+	return v.execCommands(ctx, ga, cmds)
+}
+
 func (v *bot) fdisk(ctx context.Context, ga agent.Interface, devPath string) error {
 	var cmds = [][]string{
 		{"parted", "-s", devPath, "mklabel", "gpt"},
@@ -316,6 +361,21 @@ func (v *bot) fdisk(ctx context.Context, ga agent.Interface, devPath string) err
 		{"mkfs", "-F", "-t", fs, devPath},
 	}
 	return v.execCommands(ctx, ga, cmds)
+}
+
+// for ceph, before create snapshot, we need run fsfreeze
+func (v *bot) FSFreeze(ctx context.Context, ga agent.Interface, unfreeze bool) error {
+	var cmd []string
+	if unfreeze {
+		cmd = []string{"fsfreeze", "--unfreeze", v.vol.MountDir}
+	} else {
+		cmd = []string{"fsfreeze", "--freeze", v.vol.MountDir}
+	}
+	var st = <-ga.ExecOutput(ctx, cmd[0], cmd[1:]...)
+	if err := st.Error(); err != nil {
+		return errors.Annotatef(err, "%v", cmd)
+	}
+	return nil
 }
 
 func (v *bot) isFormatted(ctx context.Context, ga agent.Interface) (bool, error) {

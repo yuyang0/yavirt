@@ -111,10 +111,14 @@ func NewDataVolume(mnt string, cap int64, IO string) (vol *Volume, err error) {
 	return vol, vol.Check()
 }
 
+func NewDataVolumeFromStr(s string) (*Volume, error) {
+	return newVolumeFromStr(VolDataType, s)
+}
+
 // NewDataVolumeFromStr
 // format: `src:dst[:flags][:size][:read_IOPS:write_IOPS:read_bytes:write_bytes]`
 // example: `/source:/dir0:rw:1024:1000:1000:10M:10M`
-func NewDataVolumeFromStr(s string) (*Volume, error) {
+func newVolumeFromStr(volTy string, s string) (*Volume, error) {
 	parts := strings.Split(s, ":")
 	if len(parts) != 4 && len(parts) != 8 {
 		return nil, errors.Annotatef(errors.ErrInvalidVolumeBind, "bind: %s", s)
@@ -141,7 +145,14 @@ func NewDataVolumeFromStr(s string) (*Volume, error) {
 	if len(parts) > 4 {
 		ioConstraints = strings.Join(parts[4:], ":")
 	}
-	return NewDataVolume(mnt, capacity, ioConstraints)
+	switch volTy {
+	case VolDataType:
+		return NewDataVolume(mnt, capacity, ioConstraints)
+	case VolRBDType:
+		return NewRBDVolume(src, dest, capacity, ioConstraints)
+	default:
+		return nil, errors.New("Unknown volume type")
+	}
 }
 
 // NewSysVolume .
@@ -149,6 +160,21 @@ func NewSysVolume(cap int64, imageName string) *Volume {
 	vol := NewVolume(VolSysType, cap)
 	vol.ImageName = imageName
 	return vol
+}
+
+func NewRBDVolume(src, dest string, cap int64, IO string) (vol *Volume, err error) {
+	vol = NewVolume(VolRBDType, cap)
+	vol.HostDir = src
+	vol.MountDir = dest
+	err = vol.IOContraints.parse(IO)
+	if err != nil {
+		return nil, err
+	}
+	return vol, vol.Check()
+}
+
+func NewRBDVolumeFromStr(s string) (*Volume, error) {
+	return newVolumeFromStr(VolRBDType, s)
 }
 
 // NewVolume .
@@ -287,10 +313,15 @@ func (v *Volume) String() string {
 
 // Filepath .
 func (v *Volume) Filepath() string {
-	if len(v.HostDir) > 0 {
-		return filepath.Join(v.HostDir, v.Name())
+	switch v.Type {
+	case VolRBDType:
+		return v.HostDir
+	default:
+		if len(v.HostDir) > 0 {
+			return filepath.Join(v.HostDir, v.Name())
+		}
+		return v.JoinVirtPath(v.Name())
 	}
-	return v.JoinVirtPath(v.Name())
 }
 
 // Name .

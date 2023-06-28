@@ -192,15 +192,6 @@ func (svc *Service) GetGuestUUID(ctx context.Context, id string) (string, error)
 
 // CreateGuest .
 func (svc *Service) CreateGuest(ctx context.Context, opts virtypes.GuestCreateOption) (*types.Guest, error) {
-	vols := []*models.Volume{}
-	for _, v := range opts.Volumes {
-		vol, err := models.NewDataVolume(v.Mount, v.Capacity, v.IO)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		vols = append(vols, vol)
-	}
-
 	if opts.CPU == 0 {
 		opts.CPU = utils.Min(svc.Host.CPU, configs.Conf.MaxCPU)
 	}
@@ -208,7 +199,7 @@ func (svc *Service) CreateGuest(ctx context.Context, opts virtypes.GuestCreateOp
 		opts.Mem = utils.Min(svc.Host.Memory, configs.Conf.MaxMemory)
 	}
 
-	g, err := svc.guest.Create(ctx, opts, svc.Host, vols)
+	g, err := svc.guest.Create(ctx, opts, svc.Host, nil)
 	if err != nil {
 		log.ErrorStack(err)
 		metrics.IncrError()

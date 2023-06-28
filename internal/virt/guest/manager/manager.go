@@ -2,6 +2,7 @@ package manager
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -19,6 +20,9 @@ import (
 	"github.com/projecteru2/yavirt/pkg/idgen"
 	"github.com/projecteru2/yavirt/pkg/log"
 	"github.com/projecteru2/yavirt/pkg/utils"
+
+	stotypes "github.com/projecteru2/resource-storage/storage/types"
+	rbdtypes "github.com/yuyang0/resource-rbd/rbd/types"
 )
 
 // Manageable wraps a group of methods.
@@ -411,14 +415,54 @@ func (m Manager) DigestImage(_ context.Context, name string, local bool) ([]stri
 	return []string{hash}, nil
 }
 
+func extractVols(opts types.GuestCreateOption) ([]*models.Volume, error) {
+	var vols []*models.Volume
+	stoResRaw, ok := opts.Resources["storage"]
+	if ok {
+		eParams := &stotypes.EngineParams{}
+		if err := json.Unmarshal(stoResRaw, eParams); err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, part := range eParams.Volumes {
+			vol, err := models.NewDataVolumeFromStr(part)
+			if err != nil {
+				return nil, err
+			}
+			vols = append(vols, vol)
+		}
+	}
+	rbdResRaw, ok := opts.Resources["rbd"]
+	if ok {
+		eParams := &rbdtypes.EngineParams{}
+		if err := json.Unmarshal(rbdResRaw, eParams); err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, part := range eParams.Volumes {
+			vol, err := models.NewRBDVolumeFromStr(part)
+			if err != nil {
+				return nil, err
+			}
+			vols = append(vols, vol)
+		}
+	}
+	return vols, nil
+}
+
 // Create creates a new guest.
 func (m Manager) Create(ctx context.Context, opts types.GuestCreateOption, host *models.Host, vols []*models.Volume) (*guest.Guest, error) {
+	if vols == nil {
+		var err error
+		if vols, err = extractVols(opts); err != nil {
+			return nil, err
+		}
+	}
+
 	// Creates metadata.
 	g, err := models.CreateGuest(opts, host, vols)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
+	log.Debugf("Guest Created: %+v", g)
 	// Destroys resource and delete metadata while rolling back.
 	var vg *guest.Guest
 	destroy := func() {

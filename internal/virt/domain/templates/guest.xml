@@ -47,18 +47,33 @@
       <target dev='vda' bus='virtio'/>
     </disk>
     {{range .datavols}}
-    <disk type='file' device='disk'>
-      <driver name='qemu' type='qcow2'/>
-      <source file='{{.path}}'/>
-      <target dev='{{.dev}}' bus='virtio'/>
-      <iotune>
-        <read_iops_sec>{{ .read_iops }}</read_iops_sec>
-        <write_iops_sec>{{ .write_iops }}</write_iops_sec>
-        <read_bytes_sec>{{ .read_bps }}</read_bytes_sec>
-        <write_bytes_sec>{{ .write_bps }}</write_bytes_sec>
-      </iotune>
-    </disk>
+      {{ if .isRBD }}
+      <disk type='network' device='disk'>
+        <source protocol='rbd' name='{{.path}}'>
+          {{ range .monitorAddrs }}
+          <host name='{{.host}}' port='{{ .port }}'/>
+          {{ end }}
+        </source>
+        <auth username='{{.username}}'>
+          <secret type='ceph' uuid='{{ .secretUUID }}'/>
+        </auth>
+        <target dev='{{.dev}}' bus='virtio'/>
+      </disk>
+      {{ else }}
+      <disk type='file' device='disk'>
+        <driver name='qemu' type='qcow2'/>
+        <source file='{{.path}}'/>
+        <target dev='{{.dev}}' bus='virtio'/>
+        <iotune>
+          <read_iops_sec>{{ .read_iops }}</read_iops_sec>
+          <write_iops_sec>{{ .write_iops }}</write_iops_sec>
+          <read_bytes_sec>{{ .read_bps }}</read_bytes_sec>
+          <write_bytes_sec>{{ .write_bps }}</write_bytes_sec>
+        </iotune>
+      </disk>
+      {{end}}
     {{end}}
+
     <disk type='file' device='cdrom'>
       <driver name='qemu' type='raw'/>
       <target dev='hda' bus='ide'/>

@@ -140,7 +140,9 @@ func (vol *Volume) Alloc(img models.Image) error {
 
 		case models.VolDataType:
 			return bot.Alloc()
-
+		case models.VolRBDType:
+			// do nothing
+			return nil
 		default:
 			return errors.Annotatef(errors.ErrInvalidValue, "invalid VolumeType: %s", vol.Type)
 		}

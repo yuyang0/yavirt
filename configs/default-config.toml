@@ -66,3 +66,9 @@ etcd_env = "ETCD_ENDPOINTS"
 
 [network]
 ifname_prefix = "yap"
+
+[storage]
+[storage.ceph]
+monitor_addrs = []
+username = "eru"
+secret_uuid = ""

@@ -28,14 +28,12 @@ var (
 type sizeType int64
 type subnetType int64
 
-type CoreConfig struct {
-	Addrs               []string `toml:"addrs"`
-	Username            string   `toml:"username"`
-	Password            string   `toml:"password"`
-	StatusCheckInterval Duration `toml:"status_check_interval"`
-	NodeStatusTTL       Duration `toml:"nodestatus_ttl"`
-	Nodename            string   `toml:"nodename"`
-}
+type storageType int64
+
+const (
+	localStorage = iota
+	cephStorage
+)
 
 func (a *sizeType) UnmarshalText(text []byte) error {
 	if len(text) == 0 {
@@ -61,6 +59,34 @@ func (a *subnetType) UnmarshalText(text []byte) error {
 	}
 	*a = subnetType(dec)
 	return nil
+}
+
+func (a *storageType) UnmarshalText(text []byte) (err error) {
+	switch strings.ToLower(string(text)) {
+	case "local":
+		*a = localStorage
+	case "ceph":
+		*a = cephStorage
+	default:
+		err = errors.New("invalid storage type")
+	}
+	return
+}
+func (a *storageType) IsCeph() bool {
+	return *a == cephStorage
+}
+
+func (a *storageType) IsLocal() bool {
+	return *a == localStorage
+}
+
+type CoreConfig struct {
+	Addrs               []string `toml:"addrs"`
+	Username            string   `toml:"username"`
+	Password            string   `toml:"password"`
+	StatusCheckInterval Duration `toml:"status_check_interval"`
+	NodeStatusTTL       Duration `toml:"nodestatus_ttl"`
+	Nodename            string   `toml:"nodename"`
 }
 
 type HostConfig struct {
@@ -100,6 +126,21 @@ type NetworkConfig struct {
 	IFNamePrefix string `toml:"ifname_prefix"`
 }
 
+type CephConfig struct {
+	MonitorAddrs []string `toml:"monitor_addrs"`
+	Username     string   `toml:"username"`
+	SecretUUID   string   `toml:"secret_uuid"`
+}
+
+type LocalConfig struct {
+	Dir string `toml:"dir"`
+}
+type StorageConfig struct {
+	Type  storageType `toml:"type"`
+	Ceph  CephConfig  `toml:"ceph"`
+	Local LocalConfig `toml:"local"`
+}
+
 // Config .
 type Config struct {
 	Env string `toml:"env"`
@@ -110,6 +151,7 @@ type Config struct {
 	Calico  CalicoCnfig   `toml:"calico"`
 	CNI     CNIConfig     `toml:"cni"`
 	Network NetworkConfig `toml:"network"`
+	Storage StorageConfig `toml:"storage"`
 
 	ProfHTTPPort           int      `toml:"prof_http_port"`
 	BindHTTPAddr           string   `toml:"bind_http_addr"`
