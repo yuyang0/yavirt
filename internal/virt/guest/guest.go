@@ -8,9 +8,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/projecteru2/yavirt/internal/image"
+	"github.com/projecteru2/yavirt/internal/meta"
 	"github.com/projecteru2/yavirt/internal/models"
 	"github.com/projecteru2/yavirt/internal/virt/types"
-	"github.com/projecteru2/yavirt/internal/virt/volume"
+	"github.com/projecteru2/yavirt/internal/volume"
+	"github.com/projecteru2/yavirt/internal/volume/base"
 	"github.com/projecteru2/yavirt/pkg/errors"
 	"github.com/projecteru2/yavirt/pkg/libvirt"
 	"github.com/projecteru2/yavirt/pkg/log"
@@ -73,18 +76,18 @@ func (g *Guest) Load() error {
 // SyncState .
 func (g *Guest) SyncState(ctx context.Context) error {
 	switch g.Status {
-	case models.StatusDestroying:
+	case meta.StatusDestroying:
 		return g.ProcessDestroy()
 
-	case models.StatusStopping:
+	case meta.StatusStopping:
 		return g.stop(ctx, true)
 
-	case models.StatusRunning:
+	case meta.StatusRunning:
 		fallthrough
-	case models.StatusStarting:
+	case meta.StatusStarting:
 		return g.start(ctx)
 
-	case models.StatusCreating:
+	case meta.StatusCreating:
 		return g.create()
 
 	default:
@@ -124,22 +127,26 @@ func (g *Guest) start(ctx context.Context) error {
 }
 
 // Resize .
-func (g *Guest) Resize(cpu int, mem int64, vols map[string]*models.Volume) error {
+func (g *Guest) Resize(cpu int, mem int64, vols []volume.Volume) error {
 	// Only checking, without touch metadata
 	// due to we wanna keep further booting successfully all the time.
-	if !g.CheckForwardStatus(models.StatusResizing) {
+	if !g.CheckForwardStatus(meta.StatusResizing) {
 		return errors.Annotatef(errors.ErrForwardStatus, "only stopped/running guest can be resized, but it's %s", g.Status)
 	}
 
+	volMap := map[string]volume.Volume{}
+	for _, vol := range vols {
+		volMap[vol.GetMountDir()] = vol
+	}
 	// Actually, mntCaps from ERU will include completed volumes,
 	// even those volumes aren't affected.
 	if len(vols) > 0 {
 		// Just amplifies those original volumes.
-		if err := g.amplifyOrigVols(vols); err != nil {
+		if err := g.amplifyOrigVols(volMap); err != nil {
 			return errors.Trace(err)
 		}
 		// Attaches new extra volumes.
-		if err := g.attachVols(vols); err != nil {
+		if err := g.attachVols(volMap); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -151,25 +158,25 @@ func (g *Guest) Resize(cpu int, mem int64, vols map[string]*models.Volume) error
 	return g.resizeSpec(cpu, mem)
 }
 
-func (g *Guest) amplifyOrigVols(vols map[string]*models.Volume) error {
+func (g *Guest) amplifyOrigVols(vols map[string]volume.Volume) error {
 	var err error
-	g.rangeVolumes(func(sn int, vol volume.Virt) bool {
-		newCapMod, affected := vols[vol.Model().MountDir]
+	g.rangeVolumes(func(sn int, vol volume.Volume) bool {
+		newCapMod, affected := vols[vol.GetMountDir()]
 		if !affected {
 			return true
 		}
 
 		var delta int64
-		switch delta = newCapMod.Capacity - vol.Model().Capacity; {
+		switch delta = newCapMod.GetSize() - vol.GetSize(); {
 		case delta < 0:
-			err = errors.Annotatef(errors.ErrCannotShrinkVolume, "mount dir: %s", newCapMod.MountDir)
+			err = errors.Annotatef(errors.ErrCannotShrinkVolume, "mount dir: %s", newCapMod.GetMountDir())
 			return false
 		case delta == 0: // nothing changed
 			return true
 		}
 
 		err = g.botOperate(func(bot Bot) error {
-			return bot.AmplifyVolume(vol, delta, vol.Model().GetDevicePathBySerialNumber(sn))
+			return bot.AmplifyVolume(vol, delta, base.GetDevicePathBySerialNumber(sn))
 		})
 		return err == nil
 	})
@@ -177,14 +184,13 @@ func (g *Guest) amplifyOrigVols(vols map[string]*models.Volume) error {
 	return err
 }
 
-func (g *Guest) attachVols(vols map[string]*models.Volume) error {
+func (g *Guest) attachVols(vols map[string]volume.Volume) error {
 	for _, vol := range vols {
-		if g.Vols.Exists(vol.MountDir) {
+		if g.Vols.Exists(vol.GetMountDir()) {
 			continue
 		}
-
-		vol.GuestID = g.ID
-		vol.Status = g.Status
+		vol.SetGuestID(g.ID)
+		vol.SetStatus(g.Status, true)
 		vol.GenerateID()
 		if err := g.attachVol(vol); err != nil {
 			return errors.Trace(err)
@@ -194,7 +200,7 @@ func (g *Guest) attachVols(vols map[string]*models.Volume) error {
 	return nil
 }
 
-func (g *Guest) attachVol(volmod *models.Volume) (err error) {
+func (g *Guest) attachVol(volmod volume.Volume) (err error) {
 	devName := g.nextVolumeName()
 
 	if err = g.AppendVols(volmod); err != nil {
@@ -207,7 +213,7 @@ func (g *Guest) attachVol(volmod *models.Volume) (err error) {
 			if rollback != nil {
 				rollback()
 			}
-			g.RemoveVol(volmod.ID)
+			g.RemoveVol(volmod.GetID())
 		}
 	}()
 
@@ -232,13 +238,14 @@ func (g *Guest) resizeSpec(cpu int, mem int64) error {
 }
 
 // ListSnapshot If volID == "", list snapshots of all vols. Else will find vol with matching volID.
-func (g *Guest) ListSnapshot(volID string) (map[*models.Volume]models.Snapshots, error) {
-	volSnap := make(map[*models.Volume]models.Snapshots)
+func (g *Guest) ListSnapshot(volID string) (map[volume.Volume]base.Snapshots, error) {
+	volSnap := make(map[volume.Volume]base.Snapshots)
 
 	matched := false
 	for _, v := range g.Vols {
-		if v.ID == volID || volID == "" {
-			volSnap[v] = v.Snaps
+		if v.GetID() == volID || volID == "" {
+			api := v.NewSnapshotAPI()
+			volSnap[v] = api.List()
 			matched = true
 		}
 	}
@@ -252,7 +259,7 @@ func (g *Guest) ListSnapshot(volID string) (map[*models.Volume]models.Snapshots,
 
 // CheckVolume .
 func (g *Guest) CheckVolume(volID string) error {
-	if g.Status != models.StatusStopped && g.Status != models.StatusPaused {
+	if g.Status != meta.StatusStopped && g.Status != meta.StatusPaused {
 		return errors.Annotatef(errors.ErrForwardStatus,
 			"only paused/stopped guest can be perform volume check, but it's %s", g.Status)
 	}
@@ -273,7 +280,7 @@ func (g *Guest) CheckVolume(volID string) error {
 
 // RepairVolume .
 func (g *Guest) RepairVolume(volID string) error {
-	if g.Status != models.StatusStopped {
+	if g.Status != meta.StatusStopped {
 		return errors.Annotatef(errors.ErrForwardStatus,
 			"only stopped guest can be perform volume check, but it's %s", g.Status)
 	}
@@ -294,7 +301,7 @@ func (g *Guest) RepairVolume(volID string) error {
 
 // CreateSnapshot .
 func (g *Guest) CreateSnapshot(volID string) error {
-	if g.Status != models.StatusStopped && g.Status != models.StatusPaused {
+	if g.Status != meta.StatusStopped && g.Status != meta.StatusPaused {
 		return errors.Annotatef(errors.ErrForwardStatus,
 			"only paused/stopped guest can be perform snapshot operation, but it's %s", g.Status)
 	}
@@ -315,7 +322,7 @@ func (g *Guest) CreateSnapshot(volID string) error {
 
 // CommitSnapshot .
 func (g *Guest) CommitSnapshot(volID string, snapID string) error {
-	if g.Status != models.StatusStopped {
+	if g.Status != meta.StatusStopped {
 		return errors.Annotatef(errors.ErrForwardStatus,
 			"only stopped guest can be perform snapshot operation, but it's %s", g.Status)
 	}
@@ -336,7 +343,7 @@ func (g *Guest) CommitSnapshot(volID string, snapID string) error {
 
 // CommitSnapshot .
 func (g *Guest) CommitSnapshotByDay(volID string, day int) error {
-	if g.Status != models.StatusStopped {
+	if g.Status != meta.StatusStopped {
 		return errors.Annotatef(errors.ErrForwardStatus,
 			"only stopped guest can be perform snapshot operation, but it's %s", g.Status)
 	}
@@ -357,7 +364,7 @@ func (g *Guest) CommitSnapshotByDay(volID string, day int) error {
 
 // RestoreSnapshot .
 func (g *Guest) RestoreSnapshot(volID string, snapID string) error {
-	if g.Status != models.StatusStopped {
+	if g.Status != meta.StatusStopped {
 		return errors.Annotatef(errors.ErrForwardStatus,
 			"only stopped guest can be perform snapshot operation, but it's %s", g.Status)
 	}
@@ -377,10 +384,10 @@ func (g *Guest) RestoreSnapshot(volID string, snapID string) error {
 }
 
 // Capture .
-func (g *Guest) Capture(user, name string, overridden bool) (uimg *models.UserImage, err error) {
-	var orig *models.UserImage
+func (g *Guest) Capture(user, name string, overridden bool) (uimg *image.UserImage, err error) {
+	var orig *image.UserImage
 	if overridden {
-		if orig, err = models.LoadUserImage(user, name); err != nil {
+		if orig, err = image.LoadUserImage(user, name); err != nil {
 			return
 		}
 	}
@@ -594,8 +601,8 @@ func (g *Guest) CacheImage(_ sync.Locker) error {
 	return nil
 }
 
-func (g *Guest) sysVolume() (vol volume.Virt, err error) {
-	g.rangeVolumes(func(_ int, v volume.Virt) bool {
+func (g *Guest) sysVolume() (vol volume.Volume, err error) {
+	g.rangeVolumes(func(_ int, v volume.Volume) bool {
 		if v.IsSys() {
 			vol = v
 			return false
@@ -610,9 +617,9 @@ func (g *Guest) sysVolume() (vol volume.Virt, err error) {
 	return
 }
 
-func (g *Guest) rangeVolumes(fn func(int, volume.Virt) bool) {
-	for i, volmod := range g.Vols {
-		if !fn(i, volume.New(volmod)) {
+func (g *Guest) rangeVolumes(fn func(int, volume.Volume) bool) {
+	for i, vol := range g.Vols {
+		if !fn(i, vol) {
 			return
 		}
 	}
@@ -745,9 +752,9 @@ func (g *Guest) Log(ctx context.Context, n int, logPath string, dest io.WriteClo
 			return nil
 		}
 		switch g.Status {
-		case models.StatusRunning:
+		case meta.StatusRunning:
 			return g.logRunning(ctx, bot, n, logPath, dest)
-		case models.StatusStopped:
+		case meta.StatusStopped:
 			gfx, err := g.getGfx(logPath)
 			if err != nil {
 				return err
@@ -764,11 +771,11 @@ func (g *Guest) Log(ctx context.Context, n int, logPath string, dest io.WriteClo
 func (g *Guest) CopyToGuest(ctx context.Context, dest string, content chan []byte, overrideFolder bool) error {
 	return g.botOperate(func(bot Bot) error {
 		switch g.Status {
-		case models.StatusRunning:
+		case meta.StatusRunning:
 			return g.copyToGuestRunning(ctx, dest, content, bot, overrideFolder)
-		case models.StatusStopped:
+		case meta.StatusStopped:
 			fallthrough
-		case models.StatusCreating:
+		case meta.StatusCreating:
 			gfx, err := g.getGfx(dest)
 			if err != nil {
 				return errors.Trace(err)
@@ -799,5 +806,5 @@ func (g *Guest) ExecuteCommand(ctx context.Context, commands []string) (output [
 
 // nextVolumeName .
 func (g *Guest) nextVolumeName() string {
-	return models.GetDeviceName(g.Vols.Len())
+	return base.GetDeviceName(g.Vols.Len())
 }

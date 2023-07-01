@@ -136,9 +136,10 @@ type LocalConfig struct {
 	Dir string `toml:"dir"`
 }
 type StorageConfig struct {
-	Type  storageType `toml:"type"`
-	Ceph  CephConfig  `toml:"ceph"`
-	Local LocalConfig `toml:"local"`
+	Type            storageType `toml:"type"`
+	InitGuestVolume bool        `toml:"init_guest_volume"`
+	Ceph            CephConfig  `toml:"ceph"`
+	Local           LocalConfig `toml:"local"`
 }
 
 // Config .

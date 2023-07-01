@@ -13,7 +13,7 @@ import (
 	"github.com/projecteru2/yavirt/cmd/network"
 	"github.com/projecteru2/yavirt/cmd/run"
 	"github.com/projecteru2/yavirt/configs"
-	"github.com/projecteru2/yavirt/internal/server"
+	"github.com/projecteru2/yavirt/internal/service/boar"
 	"github.com/projecteru2/yavirt/internal/ver"
 	"github.com/projecteru2/yavirt/pkg/errors"
 )
@@ -96,7 +96,7 @@ func info(c *cli.Context, _ run.Runtime) (err error) {
 	if err := cfg.Prepare(c); err != nil {
 		return err
 	}
-	svc, err := server.SetupYavirtdService()
+	svc, err := boar.New(c.Context)
 	if err != nil {
 		return err
 	}

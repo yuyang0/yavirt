@@ -163,9 +163,9 @@ func fastenDangling(id string, virt *libvirt.Libvirtee) error {
 	}
 	switch state {
 	case libvirt.DomainRunning:
-		guest.Status = models.StatusRunning
+		guest.Status = meta.StatusRunning
 	case libvirt.DomainShutoff:
-		guest.Status = models.StatusStopped
+		guest.Status = meta.StatusStopped
 	default:
 		return errors.Errorf("doesn't support %s", state)
 	}

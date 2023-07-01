@@ -42,6 +42,18 @@ func Load(res Resource) error {
 	return nil
 }
 
+func LoadRaw(key string) (map[string]any, int64, error) {
+	var ctx, cancel = Context(context.Background())
+	defer cancel()
+	val := map[string]any{}
+	var ver, err = store.Get(ctx, key, &val)
+	if err != nil {
+		return nil, ver, errors.Trace(err)
+	}
+
+	return val, ver, nil
+}
+
 // Save .
 func Save(res Resources) error {
 	var data, err = res.Encode()

@@ -6,7 +6,7 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/projecteru2/yavirt/cmd/run"
-	"github.com/projecteru2/yavirt/internal/models"
+	"github.com/projecteru2/yavirt/internal/image"
 	"github.com/projecteru2/yavirt/pkg/errors"
 )
 
@@ -96,7 +96,7 @@ func digestFlags() []cli.Flag {
 }
 
 func list(c *cli.Context, _ run.Runtime) error {
-	imgs, err := models.ListImages(c.String("user"))
+	imgs, err := image.ListImages(c.String("user"))
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -114,7 +114,7 @@ func get(c *cli.Context, _ run.Runtime) error {
 		return errors.New("image name is required")
 	}
 
-	img, err := models.LoadImage(name, c.String("user"))
+	img, err := image.LoadImage(name, c.String("user"))
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -136,7 +136,7 @@ func add(c *cli.Context, _ run.Runtime) error {
 		return errors.New("--size is required")
 	}
 
-	img := models.NewSysImage()
+	img := image.NewSysImage()
 	img.Name = name
 	img.Size = size
 
@@ -163,7 +163,7 @@ func rm(c *cli.Context, _ run.Runtime) error {
 	}
 
 	user := c.String("user")
-	img, err := models.LoadImage(name, user)
+	img, err := image.LoadImage(name, user)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -188,7 +188,7 @@ func digest(c *cli.Context, _ run.Runtime) error {
 		return nil
 	}
 
-	img, err := models.LoadSysImage(name)
+	img, err := image.LoadSysImage(name)
 	if err != nil {
 		return errors.Trace(err)
 	}

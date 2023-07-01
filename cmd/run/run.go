@@ -85,7 +85,7 @@ func setup() error {
 	if _, err := log.Setup(configs.Conf.LogLevel, "", configs.Conf.LogSentry); err != nil {
 		return err
 	}
-	if err := store.Setup("etcd"); err != nil {
+	if err := store.Setup(configs.Conf, nil); err != nil {
 		return errors.Trace(err)
 	}
 

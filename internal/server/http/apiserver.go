@@ -7,12 +7,11 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/projecteru2/libyavirt/types"
-	"github.com/projecteru2/yavirt/internal/models"
-	"github.com/projecteru2/yavirt/internal/server"
+	"github.com/projecteru2/yavirt/internal/service"
 	"github.com/projecteru2/yavirt/pkg/errors"
 )
 
-func newAPIHandler(svc *server.Service) http.Handler {
+func newAPIHandler(svc service.Service) http.Handler {
 	gin.SetMode(gin.ReleaseMode)
 
 	var api = &apiServer{service: svc}
@@ -45,11 +44,7 @@ func newAPIHandler(svc *server.Service) http.Handler {
 }
 
 type apiServer struct {
-	service *server.Service
-}
-
-func (s *apiServer) host() *models.Host { //nolint
-	return s.service.Host
+	service service.Service
 }
 
 func (s *apiServer) Info(c *gin.Context) {

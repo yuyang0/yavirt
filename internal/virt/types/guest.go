@@ -40,3 +40,27 @@ func ConvertGRPCCreateOptions(opts *pb.CreateGuestOptions) GuestCreateOption {
 	}
 	return ret
 }
+
+type GuestResizeOption struct {
+	ID        string
+	CPU       int
+	Mem       int64
+	Volumes   []virttypes.Volume
+	Resources map[string][]byte
+}
+
+func ConvertGRPCResizeOptions(opts *pb.ResizeGuestOptions) *GuestResizeOption {
+	ret := &GuestResizeOption{
+		ID:        opts.Id,
+		CPU:       int(opts.Cpu),
+		Mem:       opts.Memory,
+		Resources: opts.Resources,
+	}
+	ret.Volumes = make([]virttypes.Volume, len(opts.Volumes))
+	for i, vol := range opts.Volumes {
+		ret.Volumes[i].Mount = vol.Mount
+		ret.Volumes[i].Capacity = vol.Capacity
+		ret.Volumes[i].IO = vol.Io
+	}
+	return ret
+}

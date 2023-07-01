@@ -15,7 +15,7 @@ import (
 //	/hosts:counter
 //	/hosts/<host name>
 type Host struct {
-	*Generic
+	*meta.Generic
 
 	ID          uint32 `json:"id"`
 	Name        string `json:"name"`
@@ -53,7 +53,7 @@ func LoadHost() (*Host, error) {
 	}
 
 	host := &Host{
-		Generic:     newGeneric(),
+		Generic:     meta.NewGeneric(),
 		Name:        cfg.Host.Name,
 		Type:        HostVirtType,
 		Subnet:      int64(cfg.Host.Subnet),
@@ -73,7 +73,7 @@ func LoadHost() (*Host, error) {
 
 // NewHost .
 func NewHost() *Host {
-	return &Host{Generic: newGeneric()}
+	return &Host{Generic: meta.NewGeneric()}
 }
 
 // MetaKey .

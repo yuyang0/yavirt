@@ -6,7 +6,7 @@ import (
 
 	"github.com/projecteru2/yavirt/internal/meta"
 	"github.com/projecteru2/yavirt/internal/virt/agent/mocks"
-	"github.com/projecteru2/yavirt/internal/virt/volume"
+	"github.com/projecteru2/yavirt/internal/volume"
 	"github.com/projecteru2/yavirt/pkg/errors"
 	"github.com/projecteru2/yavirt/pkg/test/assert"
 	"github.com/projecteru2/yavirt/pkg/test/mock"

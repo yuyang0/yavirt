@@ -19,6 +19,13 @@ type Gfsx struct {
 
 // New .
 func New(path string) (_ guestfs.Guestfs, err error) {
+	opts := &libguestfs.OptargsAdd_drive{
+		Readonly_is_set: false,
+	}
+	return NewFromOpts(path, opts)
+}
+
+func NewFromOpts(path string, opts *libguestfs.OptargsAdd_drive) (_ guestfs.Guestfs, err error) {
 	gfsx := &Gfsx{osDevs: []string{}}
 	if gfsx.gfs, err = libguestfs.Create(); err != nil {
 		return
@@ -29,9 +36,7 @@ func New(path string) (_ guestfs.Guestfs, err error) {
 		}
 	}()
 
-	if err = gfsx.gfs.Add_drive(path, &libguestfs.OptargsAdd_drive{
-		Readonly_is_set: false,
-	}); err != nil {
+	if err = gfsx.gfs.Add_drive(path, opts); err != nil {
 		return
 	}
 

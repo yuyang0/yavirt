@@ -2,9 +2,11 @@ package store
 
 import (
 	"context"
+	"testing"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
 
+	"github.com/projecteru2/yavirt/configs"
 	"github.com/projecteru2/yavirt/pkg/errors"
 	"github.com/projecteru2/yavirt/pkg/store/etcd"
 	"github.com/projecteru2/yavirt/pkg/utils"
@@ -28,21 +30,16 @@ type Store interface {
 	NewMutex(key string) (utils.Locker, error)
 }
 
-// New .
-func New(metatype string) (Store, error) {
-	switch metatype {
-	case "etcd":
-		return etcd.New()
-	default:
-		return nil, errors.Annotatef(errors.ErrInvalidValue, "invalid meta type: %s", metatype)
-	}
-}
-
 var store Store
 
 // Setup .
-func Setup(metatype string) (err error) {
-	store, err = New(metatype)
+func Setup(cfg configs.Config, t *testing.T) (err error) {
+	switch cfg.MetaType {
+	case "etcd":
+		store, err = etcd.New(cfg.Etcd, t)
+	default:
+		err = errors.Annotatef(errors.ErrInvalidValue, "invalid meta type: %s", cfg.MetaType)
+	}
 	return
 }
 

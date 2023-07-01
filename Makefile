@@ -10,7 +10,7 @@ LDFLAGS += -X "$(NS)/internal/ver.Git=$(shell git rev-parse HEAD)"
 LDFLAGS += -X "$(NS)/internal/ver.Compile=$(shell go version)"
 LDFLAGS += -X "$(NS)/internal/ver.Date=$(shell date +'%F %T %z')"
 
-PKGS := $$(go list ./... | grep -v -P '$(NS)/third_party|vendor/')
+PKGS := $$(go list ./... | grep -v -P '$(NS)/third_party|vendor/|mocks')
 
 .PHONY: all test build setup
 
@@ -50,7 +50,8 @@ mock: deps
 	mockery --dir internal/virt/guest/manager --output internal/virt/guest/manager/mocks --name Manageable
 	mockery --dir internal/virt/guest --output internal/virt/guest/mocks --name Bot
 	mockery --dir internal/virt/guestfs --output internal/virt/guestfs/mocks --name Guestfs
-	mockery --dir internal/virt/volume --output internal/virt/volume/mocks --name Bot
+	mockery --dir internal/volume --output internal/volume/mocks --name Volume
+	mockery --dir internal/volume/base --output internal/volume/base/mocks --name SnapshotAPI
 
 clean:
 	rm -fr bin/*

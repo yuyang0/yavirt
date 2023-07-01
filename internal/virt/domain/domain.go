@@ -4,9 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"encoding/xml"
-	"fmt"
 	"path/filepath"
-	"strings"
 	"time"
 
 	_ "embed"
@@ -39,10 +37,11 @@ var (
 
 // Domain .
 type Domain interface { //nolint
+	Lookup() (libvirt.Domain, error)
 	CheckShutoff() error
 	GetUUID() (string, error)
 	GetConsoleTtyname() (string, error)
-	AttachVolume(filepath, devName string, ic *models.IOConstraint) (st libvirt.DomainState, err error)
+	AttachVolume(buf []byte) (st libvirt.DomainState, err error)
 	AmplifyVolume(filepath string, cap uint64) error
 	Define() error
 	Undefine() error
@@ -108,7 +107,7 @@ func (d *VirtDomain) Define() error {
 
 // Boot .
 func (d *VirtDomain) Boot(ctx context.Context) error {
-	dom, err := d.lookup()
+	dom, err := d.Lookup()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -146,7 +145,7 @@ func (d *VirtDomain) Boot(ctx context.Context) error {
 
 // Shutdown .
 func (d *VirtDomain) Shutdown(ctx context.Context, force bool) error {
-	dom, err := d.lookup()
+	dom, err := d.Lookup()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -203,7 +202,7 @@ func (d *VirtDomain) forceShutdown(dom libvirt.Domain) error {
 
 // CheckShutoff .
 func (d *VirtDomain) CheckShutoff() error {
-	dom, err := d.lookup()
+	dom, err := d.Lookup()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -221,7 +220,7 @@ func (d *VirtDomain) CheckShutoff() error {
 
 // Suspend .
 func (d *VirtDomain) Suspend() error {
-	dom, err := d.lookup()
+	dom, err := d.Lookup()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -253,7 +252,7 @@ func (d *VirtDomain) Suspend() error {
 
 // Resume .
 func (d *VirtDomain) Resume() error {
-	dom, err := d.lookup()
+	dom, err := d.Lookup()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -285,7 +284,7 @@ func (d *VirtDomain) Resume() error {
 
 // Undefine .
 func (d *VirtDomain) Undefine() error {
-	dom, err := d.lookup()
+	dom, err := d.Lookup()
 	if err != nil {
 		if errors.IsDomainNotExistsErr(err) {
 			return nil
@@ -314,7 +313,7 @@ func (d *VirtDomain) Undefine() error {
 
 // GetUUID .
 func (d *VirtDomain) GetUUID() (string, error) {
-	dom, err := d.lookup()
+	dom, err := d.Lookup()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -333,15 +332,23 @@ func (d *VirtDomain) render() ([]byte, error) {
 		return nil, errors.Trace(err)
 	}
 
+	sysVolXML, err := sysVol.GenerateXMLWithDevName("vda")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	dataVols, err := d.dataVols()
+	if err != nil {
+		return nil, err
+	}
 	var args = map[string]any{
 		"name":              d.guest.ID,
 		"uuid":              uuid,
 		"memory":            d.guest.MemoryInMiB(),
 		"cpu":               d.guest.CPU,
 		"gpus":              d.gpus(),
-		"sysvol":            sysVol.Filepath(),
+		"sysvol":            string(sysVolXML),
 		"gasock":            d.guest.SocketFilepath(),
-		"datavols":          d.dataVols(d.guest.Vols),
+		"datavols":          dataVols,
 		"interface":         d.getInterfaceType(),
 		"pair":              d.guest.NetworkPairName(),
 		"mac":               d.guest.MAC,
@@ -373,49 +380,21 @@ func (d *VirtDomain) getInterfaceType() string {
 	}
 }
 
-func (d *VirtDomain) dataVols(vols models.Volumes) []map[string]any {
-	var dat = []map[string]any{}
-
-	// prepare monitor addresses
-	cephMonitorAddrs := []map[string]string{}
-	for _, addr := range configs.Conf.Storage.Ceph.MonitorAddrs {
-		parts := strings.Split(addr, ":")
-		d := map[string]string{
-			"host": parts[0],
-			"port": parts[1],
-		}
-		cephMonitorAddrs = append(cephMonitorAddrs, d)
-	}
+func (d *VirtDomain) dataVols() ([]string, error) {
+	vols := d.guest.Vols
+	var dat = []string{}
 
 	for i, v := range vols {
 		if v.IsSys() {
 			continue
 		}
-		var d map[string]any
-		switch v.Type {
-		case models.VolDataType:
-			d = map[string]any{
-				"isRBD":      false,
-				"path":       v.Filepath(),
-				"dev":        v.GetDeviceName(i),
-				"read_iops":  fmt.Sprintf("%d", v.IOContraints.ReadIOPS),
-				"write_iops": fmt.Sprintf("%d", v.IOContraints.WriteIOPS),
-				"read_bps":   fmt.Sprintf("%d", v.IOContraints.ReadBPS),
-				"write_bps":  fmt.Sprintf("%d", v.IOContraints.WriteBPS),
-			}
-		case models.VolRBDType:
-			d = map[string]any{
-				"isRBD":        true,
-				"path":         v.Filepath(),
-				"dev":          v.GetDeviceName(i),
-				"monitorAddrs": cephMonitorAddrs,
-				"username":     configs.Conf.Storage.Ceph.Username,
-				"secretUUID":   configs.Conf.Storage.Ceph.SecretUUID,
-			}
+		buf, err := v.GenerateXML(i)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
-		dat = append(dat, d)
+		dat = append(dat, string(buf))
 	}
-	return dat
+	return dat, nil
 }
 
 func (d *VirtDomain) gpus() []map[string]string {
@@ -462,7 +441,7 @@ func (d *VirtDomain) networkBandwidth() map[string]string {
 
 // GetXMLString .
 func (d *VirtDomain) GetXMLString() (xml string, err error) {
-	dom, err := d.lookup()
+	dom, err := d.Lookup()
 	if err != nil {
 		return
 	}
@@ -475,7 +454,7 @@ func (d *VirtDomain) GetXMLString() (xml string, err error) {
 // GetConsoleTtyname .
 func (d *VirtDomain) GetConsoleTtyname() (devname string, err error) {
 	var dom libvirt.Domain
-	if dom, err = d.lookup(); err != nil {
+	if dom, err = d.Lookup(); err != nil {
 		return
 	}
 	defer dom.Free()
@@ -507,7 +486,7 @@ func (d *VirtDomain) GetConsoleTtyname() (devname string, err error) {
 
 // SetSpec .
 func (d *VirtDomain) SetSpec(cpu int, mem int64) error {
-	dom, err := d.lookup()
+	dom, err := d.Lookup()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -554,36 +533,18 @@ func (d *VirtDomain) setMemory(mem int64, dom libvirt.Domain) error {
 }
 
 // AttachVolume .
-func (d *VirtDomain) AttachVolume(filepath, devName string, ic *models.IOConstraint) (st libvirt.DomainState, err error) {
+func (d *VirtDomain) AttachVolume(buf []byte) (st libvirt.DomainState, err error) {
 	var dom libvirt.Domain
-	if dom, err = d.lookup(); err != nil {
+	if dom, err = d.Lookup(); err != nil {
 		return
 	}
 	defer dom.Free()
-
-	var buf []byte
-	if buf, err = d.renderAttachVolumeXML(filepath, devName, ic); err != nil {
-		return
-	}
-
 	return dom.AttachVolume(string(buf))
-}
-
-func (d *VirtDomain) renderAttachVolumeXML(filepath, devName string, ic *models.IOConstraint) ([]byte, error) {
-	args := map[string]any{
-		"path":       filepath,
-		"dev":        devName,
-		"read_iops":  fmt.Sprintf("%d", ic.ReadIOPS),
-		"write_iops": fmt.Sprintf("%d", ic.WriteIOPS),
-		"read_bps":   fmt.Sprintf("%d", ic.ReadBPS),
-		"write_bps":  fmt.Sprintf("%d", ic.WriteBPS),
-	}
-	return template.Render(d.diskTemplateFilepath(), diskXML, args)
 }
 
 // GetState .
 func (d *VirtDomain) GetState() (libvirt.DomainState, error) {
-	dom, err := d.lookup()
+	dom, err := d.Lookup()
 	if err != nil {
 		return libvirt.DomainNoState, errors.Trace(err)
 	}
@@ -593,7 +554,7 @@ func (d *VirtDomain) GetState() (libvirt.DomainState, error) {
 
 // AmplifyVolume .
 func (d *VirtDomain) AmplifyVolume(filepath string, cap uint64) error {
-	dom, err := d.lookup()
+	dom, err := d.Lookup()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -601,7 +562,7 @@ func (d *VirtDomain) AmplifyVolume(filepath string, cap uint64) error {
 	return dom.AmplifyVolume(filepath, cap)
 }
 
-func (d *VirtDomain) lookup() (libvirt.Domain, error) {
+func (d *VirtDomain) Lookup() (libvirt.Domain, error) {
 	return d.virt.LookupDomain(d.guest.ID)
 }
 

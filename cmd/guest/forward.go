@@ -6,7 +6,7 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/projecteru2/yavirt/cmd/run"
-	"github.com/projecteru2/yavirt/internal/models"
+	"github.com/projecteru2/yavirt/internal/meta"
 	"github.com/projecteru2/yavirt/pkg/errors"
 )
 
@@ -21,7 +21,7 @@ func forwardFlags() []cli.Flag {
 
 func forward(c *cli.Context, runtime run.Runtime) error {
 	validStatus := func(st string) error {
-		for _, status := range models.AllStatuses {
+		for _, status := range meta.AllStatuses {
 			if st == status {
 				return nil
 			}

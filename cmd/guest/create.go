@@ -7,9 +7,10 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/projecteru2/yavirt/cmd/run"
-	"github.com/projecteru2/yavirt/internal/models"
 	"github.com/projecteru2/yavirt/internal/virt/types"
 	"github.com/projecteru2/yavirt/internal/vnet"
+	"github.com/projecteru2/yavirt/internal/volume"
+	"github.com/projecteru2/yavirt/internal/volume/local"
 	"github.com/projecteru2/yavirt/pkg/errors"
 	"github.com/projecteru2/yavirt/pkg/utils"
 )
@@ -45,10 +46,10 @@ func createFlags() []cli.Flag {
 }
 
 func create(c *cli.Context, runtime run.Runtime) error {
-	vols, err := getVols(c.String("storage"))
-	if err != nil {
-		return errors.Trace(err)
-	}
+	// vols, err := getVols(c.String("storage"))
+	// if err != nil {
+	// 	return errors.Trace(err)
+	// }
 
 	opts := types.GuestCreateOption{
 		CPU:       c.Int("cpu"),
@@ -56,6 +57,7 @@ func create(c *cli.Context, runtime run.Runtime) error {
 		ImageName: c.Args().First(),
 		ImageUser: c.String("image-user"),
 		DmiUUID:   c.String("dmi"),
+		//TODO: add resources
 	}
 
 	cnt := c.Int("count")
@@ -81,7 +83,7 @@ func create(c *cli.Context, runtime run.Runtime) error {
 	runtime.Host.NetworkMode = network
 
 	for i := 0; i < cnt; i++ {
-		g, err := runtime.Guest.Create(runtime.VirtContext(), opts, runtime.Host, vols)
+		g, err := runtime.Guest.Create(runtime.VirtContext(), opts, runtime.Host)
 		if err != nil {
 			return err
 		}
@@ -92,15 +94,15 @@ func create(c *cli.Context, runtime run.Runtime) error {
 	return nil
 }
 
-func getVols(mounts string) ([]*models.Volume, error) {
+func getVols(mounts string) ([]volume.Volume, error) {
 	if len(mounts) < 1 {
 		return nil, nil
 	}
 
-	var vols = []*models.Volume{}
+	var vols = []volume.Volume{}
 
 	for _, raw := range strings.Split(mounts, ",") {
-		vol, err := models.NewDataVolumeFromStr(raw)
+		vol, err := local.NewVolumeFromStr(raw)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

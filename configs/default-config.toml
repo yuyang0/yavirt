@@ -68,6 +68,7 @@ etcd_env = "ETCD_ENDPOINTS"
 ifname_prefix = "yap"
 
 [storage]
+init_guest_volume = true
 [storage.ceph]
 monitor_addrs = []
 username = "eru"

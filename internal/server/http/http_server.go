@@ -2,33 +2,31 @@ package httpserver
 
 import (
 	"context"
+	"net"
 	"net/http"
 
 	"github.com/projecteru2/yavirt/configs"
 	"github.com/projecteru2/yavirt/internal/metrics"
-	"github.com/projecteru2/yavirt/internal/server"
+	"github.com/projecteru2/yavirt/internal/service"
 	"github.com/projecteru2/yavirt/pkg/errors"
 	"github.com/projecteru2/yavirt/pkg/log"
 )
 
 // HTTPServer .
 type HTTPServer struct {
-	*server.Server
-
-	Service    *server.Service
+	Service    service.Service
 	httpServer *http.Server
+	quit       chan struct{}
 }
 
 // Listen .
-func Listen(svc *server.Service) (srv *HTTPServer, err error) {
-	srv = &HTTPServer{Service: svc}
-	if srv.Server, err = server.Listen(configs.Conf.BindHTTPAddr); err != nil {
-		return
+func New(svc service.Service, quit chan struct{}) (srv *HTTPServer) {
+	srv = &HTTPServer{
+		Service: svc,
+		quit:    quit,
 	}
-
 	srv.httpServer = srv.newHTTPServer()
-
-	return srv, nil
+	return
 }
 
 func (s *HTTPServer) newHTTPServer() *http.Server {
@@ -47,48 +45,41 @@ func (s *HTTPServer) Reload() error {
 func (s *HTTPServer) Serve() (err error) {
 	defer func() {
 		log.Warnf("[httpserver] main loop %p exit", s)
-		s.Close()
 	}()
-
+	lis, err := net.Listen("tcp", configs.Conf.BindHTTPAddr)
+	if err != nil {
+		return
+	}
 	var errCh = make(chan error, 1)
 	go func() {
 		defer func() {
 			log.Warnf("[httpserver] HTTP server %p exit", s.httpServer)
 		}()
-		errCh <- s.httpServer.Serve(s.Listener)
+		errCh <- s.httpServer.Serve(lis)
 	}()
 
 	select {
-	case <-s.Exit.Ch:
+	case <-s.quit:
 		return nil
 	case err = <-errCh:
 		return errors.Trace(err)
 	}
 }
 
-// Close .
-func (s *HTTPServer) Close() {
-	s.Exit.Do(func() {
-		close(s.Exit.Ch)
-
-		var err error
-		defer func() {
-			if err != nil {
-				log.ErrorStack(err)
-				metrics.IncrError()
-			}
-		}()
-
-		var ctx, cancel = context.WithTimeout(context.Background(), configs.Conf.GracefulTimeout.Duration())
-		defer cancel()
-
-		if err = s.httpServer.Shutdown(ctx); err != nil {
-			return
+// Stop .
+func (s *HTTPServer) Stop(force bool) {
+	var err error
+	defer func() {
+		if err != nil {
+			log.ErrorStack(err)
+			metrics.IncrError()
 		}
-	})
-}
+	}()
 
-// ExitCh .
-func (s *HTTPServer) ExitCh() chan struct{} {
-	return s.Exit.Ch
+	var ctx, cancel = context.WithTimeout(context.Background(), configs.Conf.GracefulTimeout.Duration())
+	defer cancel()
+
+	if err = s.httpServer.Shutdown(ctx); err != nil {
+		return
+	}
 }

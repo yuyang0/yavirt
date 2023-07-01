@@ -10,16 +10,15 @@ import (
 	pb "github.com/projecteru2/libyavirt/grpc/gen"
 	"github.com/projecteru2/libyavirt/types"
 
+	"github.com/projecteru2/yavirt/internal/service"
 	virtypes "github.com/projecteru2/yavirt/internal/virt/types"
 	"github.com/projecteru2/yavirt/pkg/errors"
 	"github.com/projecteru2/yavirt/pkg/log"
-
-	"github.com/projecteru2/yavirt/internal/server"
 )
 
 // GRPCYavirtd .
 type GRPCYavirtd struct {
-	service *server.Service
+	service service.Service
 }
 
 // Ping .
@@ -202,19 +201,7 @@ func (y *GRPCYavirtd) ResizeGuest(ctx context.Context, opts *pb.ResizeGuestOptio
 	msg := &pb.ControlGuestMessage{Msg: "ok"}
 	virtCtx := y.service.VirtContext(ctx)
 
-	req := types.ResizeGuestReq{
-		CPU:       int(opts.Cpu),
-		Mem:       opts.Memory,
-		Resources: opts.Resources,
-	}
-	req.Volumes = make([]types.Volume, len(opts.Volumes))
-	for i, vol := range opts.Volumes {
-		req.Volumes[i].Mount = vol.Mount
-		req.Volumes[i].Capacity = vol.Capacity
-		req.Volumes[i].IO = vol.Io
-	}
-	req.ID = opts.Id
-
+	req := virtypes.ConvertGRPCResizeOptions(opts)
 	err := y.service.ResizeGuest(virtCtx, req)
 	if err != nil {
 		msg.Msg = fmt.Sprintf("%s", err)

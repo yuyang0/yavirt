@@ -6,7 +6,6 @@ import (
 	"path"
 
 	"github.com/projecteru2/yavirt/internal/virt/guestfs"
-	"github.com/projecteru2/yavirt/internal/virt/guestfs/gfsx"
 	"github.com/projecteru2/yavirt/pkg/errors"
 )
 
@@ -88,6 +87,5 @@ func (g *Guest) getGfx(dest string) (guestfs.Guestfs, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	return gfsx.New(vol.Filepath())
+	return vol.GetGfx()
 }

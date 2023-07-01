@@ -22,7 +22,7 @@ func (bs *IPBlocks) Append(block ...*IPBlock) {
 
 // IPBlock .
 type IPBlock struct {
-	*Generic
+	*meta.Generic
 
 	IPs *utils.Bitmap32 `json:"ips"`
 
@@ -32,12 +32,12 @@ type IPBlock struct {
 
 func newIPBlock(ipp *IPPool, ipn *net.IPNet) *IPBlock {
 	block := &IPBlock{
-		Generic: newGeneric(),
+		Generic: meta.NewGeneric(),
 		ippool:  ipp,
 		ipnet:   ipn,
 	}
 
-	block.Status = StatusRunning
+	block.Status = meta.StatusRunning
 	block.IPs = utils.NewBitmap32(block.ipCount())
 
 	return block

@@ -8,13 +8,14 @@ import (
 	"time"
 
 	"github.com/projecteru2/yavirt/configs"
+	"github.com/projecteru2/yavirt/internal/image"
 	"github.com/projecteru2/yavirt/internal/metrics"
-	"github.com/projecteru2/yavirt/internal/models"
 	"github.com/projecteru2/yavirt/internal/virt/agent"
 	"github.com/projecteru2/yavirt/internal/virt/domain"
 	"github.com/projecteru2/yavirt/internal/virt/nic"
 	"github.com/projecteru2/yavirt/internal/virt/types"
-	"github.com/projecteru2/yavirt/internal/virt/volume"
+	"github.com/projecteru2/yavirt/internal/volume"
+	"github.com/projecteru2/yavirt/internal/volume/base"
 	"github.com/projecteru2/yavirt/pkg/errors"
 	"github.com/projecteru2/yavirt/pkg/libvirt"
 	"github.com/projecteru2/yavirt/pkg/log"
@@ -38,29 +39,28 @@ type Bot interface { //nolint
 	IsFolder(context.Context, string) (bool, error)
 	RemoveAll(context.Context, string) error
 	Resize(cpu int, mem int64) error
-	Capture(user, name string) (*models.UserImage, error)
-	AmplifyVolume(vol volume.Virt, cap int64, devPath string) error
-	AttachVolume(volmod *models.Volume, devName string) (rollback func(), err error)
+	Capture(user, name string) (*image.UserImage, error)
+	AmplifyVolume(vol volume.Volume, cap int64, devPath string) error
+	AttachVolume(volmod volume.Volume, devName string) (rollback func(), err error)
 	BindExtraNetwork() error
 	OpenFile(path, mode string) (agent.File, error)
 	MakeDirectory(ctx context.Context, path string, parent bool) error
 	Trylock() error
 	Unlock()
-	CreateSnapshot(*models.Volume) error
-	CommitSnapshot(*models.Volume, string) error
-	CommitSnapshotByDay(*models.Volume, int) error
-	RestoreSnapshot(*models.Volume, string) error
-	CheckVolume(*models.Volume) error
-	RepairVolume(*models.Volume) error
+	CreateSnapshot(volume.Volume) error
+	CommitSnapshot(volume.Volume, string) error
+	CommitSnapshotByDay(volume.Volume, int) error
+	RestoreSnapshot(volume.Volume, string) error
+	CheckVolume(volume.Volume) error
+	RepairVolume(volume.Volume) error
 }
 
 type bot struct {
-	guest     *Guest
-	virt      libvirt.Libvirt
-	dom       domain.Domain
-	ga        *agent.Agent
-	flock     *utils.Flock
-	newVolume func(*models.Volume) volume.Virt
+	guest *Guest
+	virt  libvirt.Libvirt
+	dom   domain.Domain
+	ga    *agent.Agent
+	flock *utils.Flock
 }
 
 func newVirtGuest(guest *Guest) (Bot, error) {
@@ -70,9 +70,8 @@ func newVirtGuest(guest *Guest) (Bot, error) {
 	}
 
 	vg := &bot{
-		guest:     guest,
-		virt:      virt,
-		newVolume: newVolume,
+		guest: guest,
+		virt:  virt,
 	}
 	vg.dom = domain.New(vg.guest.Guest, vg.virt)
 	vg.flock = vg.newFlock()
@@ -83,10 +82,6 @@ func newVirtGuest(guest *Guest) (Bot, error) {
 
 func connectSystemLibvirt() (libvirt.Libvirt, error) {
 	return libvirt.Connect("qemu:///system")
-}
-
-func newVolume(volmod *models.Volume) volume.Virt {
-	return volume.New(volmod)
 }
 
 func (v *bot) Close() (err error) {
@@ -118,8 +113,10 @@ func (v *bot) Boot(ctx context.Context) error {
 		return err
 	}
 	log.Debugf("Boot: stage2 -> Setting Vols...")
-	if err := v.setupVols(); err != nil {
-		return err
+	if configs.Conf.Storage.InitGuestVolume {
+		if err := v.setupVols(); err != nil {
+			return err
+		}
 	}
 	log.Debugf("Boot: stage3 -> Executing Batches...")
 	if err := v.execBatches(); err != nil {
@@ -171,8 +168,8 @@ func (v *bot) Resume() error {
 
 func (v *bot) Undefine() error {
 	var undeVols = func() (err error) {
-		v.guest.rangeVolumes(func(_ int, vol volume.Virt) bool {
-			err = vol.Undefine()
+		v.guest.rangeVolumes(func(_ int, vol volume.Volume) bool {
+			err = volume.Undefine(vol)
 			return err == nil
 		})
 		return
@@ -184,19 +181,36 @@ func (v *bot) Undefine() error {
 	})
 }
 
-func (v *bot) Create() error {
-	return utils.Invoke([]func() error{
-		v.allocVols,
-		v.allocGuest,
-	})
+func (v *bot) Create() (err error) {
+	defer func() {
+		if err != nil {
+			v.deallocVols()
+		}
+	}()
+
+	if err = v.allocVols(); err != nil {
+		return err
+	}
+	if err = v.allocGuest(); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 func (v *bot) allocVols() (err error) {
-	v.guest.rangeVolumes(func(_ int, vol volume.Virt) bool {
-		err = vol.Alloc(v.guest.Img)
+	v.guest.rangeVolumes(func(_ int, vol volume.Volume) bool {
+		err = volume.Alloc(vol, v.guest.Img)
 		return err == nil
 	})
 	return
+}
+
+func (v *bot) deallocVols() {
+	v.guest.rangeVolumes(func(_ int, vol volume.Volume) bool {
+		// try best behavior and ignore error
+		volume.Undefine(vol) //nolint
+		return true
+	})
 }
 
 func (v *bot) allocGuest() error {
@@ -206,45 +220,49 @@ func (v *bot) allocGuest() error {
 	return nil
 }
 
-func (v *bot) CheckVolume(volmod *models.Volume) error {
-	vol := v.newVolume(volmod)
-	return vol.Check()
+func (v *bot) CheckVolume(volmod volume.Volume) error {
+	return volume.Check(volmod)
 }
 
-func (v *bot) RepairVolume(volmod *models.Volume) error {
-	vol := v.newVolume(volmod)
-	return vol.Repair()
+func (v *bot) RepairVolume(volmod volume.Volume) error {
+	return volume.Repair(volmod)
 }
 
-func (v *bot) CreateSnapshot(volmod *models.Volume) error {
-	vol := v.newVolume(volmod)
-	return vol.CreateSnapshot()
+func (v *bot) CreateSnapshot(volmod volume.Volume) error {
+	return volume.CreateSnapshot(volmod)
 }
 
-func (v *bot) CommitSnapshot(volmod *models.Volume, snapID string) error {
-	vol := v.newVolume(volmod)
-	return vol.CommitSnapshot(snapID)
+func (v *bot) CommitSnapshot(volmod volume.Volume, snapID string) error {
+	return volume.CommitSnapshot(volmod, snapID)
 }
 
-func (v *bot) CommitSnapshotByDay(volmod *models.Volume, day int) error {
-	vol := v.newVolume(volmod)
-	return vol.CommitSnapshotByDay(day)
+func (v *bot) CommitSnapshotByDay(volmod volume.Volume, day int) error {
+	return volume.CommitSnapshotByDay(volmod, day)
 }
 
-func (v *bot) RestoreSnapshot(volmod *models.Volume, snapID string) error {
-	vol := v.newVolume(volmod)
-	return vol.RestoreSnapshot(snapID)
+func (v *bot) RestoreSnapshot(volmod volume.Volume, snapID string) error {
+	return volume.RestoreSnapshot(volmod, snapID)
 }
 
 // AttachVolume .
-func (v *bot) AttachVolume(volmod *models.Volume, devName string) (func(), error) {
-	vol := v.newVolume(volmod)
-	return vol.Attach(v.dom, v.ga, devName)
+func (v *bot) AttachVolume(volmod volume.Volume, devName string) (func(), error) {
+	dom, err := v.dom.Lookup()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer dom.Free()
+
+	return volume.Attach(volmod, dom, v.ga, devName)
 }
 
 // AmplifyVolume .
-func (v *bot) AmplifyVolume(vol volume.Virt, cap int64, devPath string) (err error) {
-	_, err = vol.Amplify(cap, v.dom, v.ga, devPath)
+func (v *bot) AmplifyVolume(vol volume.Volume, cap int64, devPath string) (err error) {
+	dom, err := v.dom.Lookup()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer dom.Free()
+	_, err = volume.Amplify(vol, cap, dom, v.ga, devPath)
 
 	return err
 }
@@ -273,11 +291,11 @@ func (v *bot) execBatches() error {
 }
 
 func (v *bot) setupVols() (err error) {
-	v.guest.rangeVolumes(func(sn int, vol volume.Virt) bool {
+	v.guest.rangeVolumes(func(sn int, vol volume.Volume) bool {
 		if vol.IsSys() {
 			return true
 		}
-		err = vol.Mount(v.ga, vol.Model().GetDevicePathBySerialNumber(sn))
+		err = volume.Mount(vol, v.ga, base.GetDevicePathBySerialNumber(sn))
 		return err == nil
 	})
 	return
@@ -379,7 +397,7 @@ func (v *bot) GetUUID() (string, error) {
 	return v.dom.GetUUID()
 }
 
-func (v *bot) Capture(user, name string) (*models.UserImage, error) {
+func (v *bot) Capture(user, name string) (*image.UserImage, error) {
 	if err := v.dom.CheckShutoff(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -389,7 +407,7 @@ func (v *bot) Capture(user, name string) (*models.UserImage, error) {
 		return nil, errors.Trace(err)
 	}
 
-	return vol.ConvertImage(user, name)
+	return volume.ConvertImage(vol, user, name)
 }
 
 func (v *bot) Trylock() error {

@@ -16,7 +16,7 @@ import (
 
 // IPPool .
 type IPPool struct {
-	*Generic
+	*meta.Generic
 
 	Name  string          `json:"name"`
 	Raw   string          `json:"raw"`
@@ -52,13 +52,13 @@ func NewIPPool(name, cidr string) (ipp *IPPool, err error) {
 
 func newIPPool(name string) *IPPool {
 	ipp := &IPPool{
-		Generic: newGeneric(),
+		Generic: meta.NewGeneric(),
 		Name:    name,
 		blocks:  IPBlocks{},
 		sync:    true,
 	}
 
-	ipp.Status = StatusRunning
+	ipp.Status = meta.StatusRunning
 
 	return ipp
 }

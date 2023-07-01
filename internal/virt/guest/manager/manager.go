@@ -12,10 +12,15 @@ import (
 	"time"
 
 	"github.com/projecteru2/yavirt/configs"
+	"github.com/projecteru2/yavirt/internal/image"
 	"github.com/projecteru2/yavirt/internal/meta"
 	"github.com/projecteru2/yavirt/internal/models"
 	"github.com/projecteru2/yavirt/internal/virt/guest"
 	"github.com/projecteru2/yavirt/internal/virt/types"
+	"github.com/projecteru2/yavirt/internal/volume"
+	"github.com/projecteru2/yavirt/internal/volume/base"
+	"github.com/projecteru2/yavirt/internal/volume/local"
+	"github.com/projecteru2/yavirt/internal/volume/rbd"
 	"github.com/projecteru2/yavirt/pkg/errors"
 	"github.com/projecteru2/yavirt/pkg/idgen"
 	"github.com/projecteru2/yavirt/pkg/log"
@@ -45,7 +50,7 @@ type Watchable interface {
 
 // Creatable wraps a group of methods about creation.
 type Creatable interface {
-	Create(ctx context.Context, opts types.GuestCreateOption, host *models.Host, vols []*models.Volume) (vg *guest.Guest, err error)
+	Create(ctx context.Context, opts types.GuestCreateOption, host *models.Host) (vg *guest.Guest, err error)
 }
 
 // Networkable wraps a group of networking methods.
@@ -66,7 +71,7 @@ type Executable interface {
 
 // Controllable wraps a group of controlling methods.
 type Controllable interface {
-	Resize(ctx context.Context, id string, cpu int, mem int64, vols map[string]*models.Volume) error
+	Resize(ctx context.Context, req *types.GuestResizeOption) error
 	Start(ctx context.Context, id string) error
 	Suspend(ctx context.Context, id string) error
 	Resume(ctx context.Context, id string) error
@@ -86,15 +91,15 @@ var imageMutex sync.Mutex
 
 // Imageable wraps a group of methods about images.
 type Imageable interface {
-	Capture(ctx context.Context, guestID, user, name string, overridden bool) (*models.UserImage, error)
+	Capture(ctx context.Context, guestID, user, name string, overridden bool) (*image.UserImage, error)
 	RemoveImage(ctx context.Context, imageName, user string, force, prune bool) ([]string, error)
-	ListImage(ctx context.Context, filter string) ([]models.Image, error)
+	ListImage(ctx context.Context, filter string) ([]image.Image, error)
 	DigestImage(ctx context.Context, name string, local bool) ([]string, error)
 }
 
 // Snapshotable wraps a group a methods about snapshots.
 type Snapshotable interface {
-	ListSnapshot(ctx context.Context, guestID, volID string) (map[*models.Volume]models.Snapshots, error)
+	ListSnapshot(ctx context.Context, guestID, volID string) (map[volume.Volume]base.Snapshots, error)
 	CreateSnapshot(ctx context.Context, id, volID string) error
 	CommitSnapshot(ctx context.Context, id, volID, snapID string) error
 	CommitSnapshotByDay(ctx context.Context, id, volID string, day int) error
@@ -178,7 +183,7 @@ func (m Manager) Start(ctx context.Context, id string) error {
 // Wait for a guest.
 func (m Manager) Wait(ctx context.Context, id string, block bool) (msg string, code int, err error) {
 	err = m.ctrl(ctx, id, miscOp, func(g *guest.Guest) error {
-		if err = g.Wait(models.StatusStopped, block); err != nil {
+		if err = g.Wait(meta.StatusStopped, block); err != nil {
 			return err
 		}
 
@@ -207,14 +212,18 @@ func (m Manager) Resume(ctx context.Context, id string) error {
 }
 
 // Resize re-allocates spec or volumes.
-func (m Manager) Resize(ctx context.Context, id string, cpu int, mem int64, vols map[string]*models.Volume) error {
-	return m.ctrl(ctx, id, resizeOp, func(g *guest.Guest) error {
-		return g.Resize(cpu, mem, vols)
+func (m Manager) Resize(ctx context.Context, req *types.GuestResizeOption) error {
+	vols, err := extractVols(req.Resources)
+	if err != nil {
+		return err
+	}
+	return m.ctrl(ctx, req.ID, resizeOp, func(g *guest.Guest) error {
+		return g.Resize(req.CPU, req.Mem, vols)
 	}, nil)
 }
 
 // List snapshots of volume.
-func (m Manager) ListSnapshot(ctx context.Context, guestID, volID string) (map[*models.Volume]models.Snapshots, error) {
+func (m Manager) ListSnapshot(ctx context.Context, guestID, volID string) (map[volume.Volume]base.Snapshots, error) {
 	g, err := m.Load(ctx, guestID)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -228,7 +237,7 @@ func (m Manager) CreateSnapshot(ctx context.Context, id, volID string) error {
 	return m.ctrl(ctx, id, createSnapshotOp, func(g *guest.Guest) error {
 		suspended := false
 		stopped := false
-		if g.Status == models.StatusRunning {
+		if g.Status == meta.StatusRunning {
 			if err := g.Suspend(); err != nil {
 				return err
 			}
@@ -267,7 +276,7 @@ func (m Manager) CreateSnapshot(ctx context.Context, id, volID string) error {
 func (m Manager) CommitSnapshot(ctx context.Context, id, volID, snapID string) error {
 	return m.ctrl(ctx, id, commitSnapshotOp, func(g *guest.Guest) error {
 		stopped := false
-		if g.Status == models.StatusRunning {
+		if g.Status == meta.StatusRunning {
 			if err := g.Stop(ctx, true); err != nil {
 				return err
 			}
@@ -289,7 +298,7 @@ func (m Manager) CommitSnapshot(ctx context.Context, id, volID, snapID string) e
 func (m Manager) CommitSnapshotByDay(ctx context.Context, id, volID string, day int) error {
 	return m.ctrl(ctx, id, commitSnapshotOp, func(g *guest.Guest) error {
 		stopped := false
-		if g.Status == models.StatusRunning {
+		if g.Status == meta.StatusRunning {
 			if err := g.Stop(ctx, true); err != nil {
 				return err
 			}
@@ -311,7 +320,7 @@ func (m Manager) CommitSnapshotByDay(ctx context.Context, id, volID string, day 
 func (m Manager) RestoreSnapshot(ctx context.Context, id, volID, snapID string) error {
 	return m.ctrl(ctx, id, restoreSnapshotOp, func(g *guest.Guest) error {
 		stopped := false
-		if g.Status == models.StatusRunning {
+		if g.Status == meta.StatusRunning {
 			if err := g.Stop(ctx, true); err != nil {
 				return err
 			}
@@ -330,7 +339,7 @@ func (m Manager) RestoreSnapshot(ctx context.Context, id, volID, snapID string) 
 }
 
 // Capture captures an image from a guest.
-func (m Manager) Capture(ctx context.Context, guestID, user, name string, overridden bool) (*models.UserImage, error) {
+func (m Manager) Capture(ctx context.Context, guestID, user, name string, overridden bool) (*image.UserImage, error) {
 	g, err := m.Load(ctx, guestID)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -346,7 +355,7 @@ func (m Manager) Capture(ctx context.Context, guestID, user, name string, overri
 
 // RemoveImage removes a local image.
 func (m Manager) RemoveImage(_ context.Context, imageName, user string, _, _ bool) ([]string, error) {
-	img, err := models.LoadImage(imageName, user)
+	img, err := image.LoadImage(imageName, user)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -354,7 +363,7 @@ func (m Manager) RemoveImage(_ context.Context, imageName, user string, _, _ boo
 	imageMutex.Lock()
 	defer imageMutex.Unlock()
 
-	if exists, err := models.ImageExists(img); err != nil {
+	if exists, err := image.ImageExists(img); err != nil {
 		return nil, errors.Trace(err)
 	} else if exists {
 		if err = os.Remove(img.Filepath()); err != nil {
@@ -366,8 +375,8 @@ func (m Manager) RemoveImage(_ context.Context, imageName, user string, _, _ boo
 }
 
 // ListImage .
-func (m Manager) ListImage(_ context.Context, filter string) ([]models.Image, error) {
-	imgs, err := models.ListSysImages()
+func (m Manager) ListImage(_ context.Context, filter string) ([]image.Image, error) {
+	imgs, err := image.ListSysImages()
 	if err != nil {
 		return nil, err
 	}
@@ -376,7 +385,7 @@ func (m Manager) ListImage(_ context.Context, filter string) ([]models.Image, er
 		return imgs, nil
 	}
 
-	images := []models.Image{}
+	images := []image.Image{}
 	var regExp *regexp.Regexp
 	filter = strings.ReplaceAll(filter, "*", ".*")
 	if regExp, err = regexp.Compile(fmt.Sprintf("%s%s%s", "^", filter, "$")); err != nil {
@@ -402,7 +411,7 @@ func (m Manager) DigestImage(_ context.Context, name string, local bool) ([]stri
 	// If not exists return error
 	// If exists return digests
 
-	img, err := models.LoadSysImage(name)
+	img, err := image.LoadSysImage(name)
 	if err != nil {
 		return nil, err
 	}
@@ -415,46 +424,56 @@ func (m Manager) DigestImage(_ context.Context, name string, local bool) ([]stri
 	return []string{hash}, nil
 }
 
-func extractVols(opts types.GuestCreateOption) ([]*models.Volume, error) {
-	var vols []*models.Volume
-	stoResRaw, ok := opts.Resources["storage"]
+func extractVols(resources map[string][]byte) ([]volume.Volume, error) {
+	var sysVol volume.Volume
+	vols := make([]volume.Volume, 1) // first place if for sys volume
+	stoResRaw, ok := resources["storage"]
 	if ok {
 		eParams := &stotypes.EngineParams{}
 		if err := json.Unmarshal(stoResRaw, eParams); err != nil {
 			return nil, errors.Trace(err)
 		}
 		for _, part := range eParams.Volumes {
-			vol, err := models.NewDataVolumeFromStr(part)
+			vol, err := local.NewVolumeFromStr(part)
 			if err != nil {
 				return nil, err
 			}
-			vols = append(vols, vol)
+			vols = append(vols, vol) //nolint
 		}
 	}
-	rbdResRaw, ok := opts.Resources["rbd"]
+	rbdResRaw, ok := resources["rbd"]
 	if ok {
 		eParams := &rbdtypes.EngineParams{}
 		if err := json.Unmarshal(rbdResRaw, eParams); err != nil {
 			return nil, errors.Trace(err)
 		}
 		for _, part := range eParams.Volumes {
-			vol, err := models.NewRBDVolumeFromStr(part)
+			vol, err := rbd.NewFromStr(part)
 			if err != nil {
 				return nil, err
 			}
-			vols = append(vols, vol)
+			if vol.IsSys() {
+				if sysVol != nil {
+					return nil, errors.New("multiple sys volume")
+				}
+				sysVol = vol
+			}
+			vols = append(vols, vol) //nolint
 		}
+	}
+	if sysVol != nil {
+		vols[0] = sysVol
+	} else {
+		vols = vols[1:]
 	}
 	return vols, nil
 }
 
 // Create creates a new guest.
-func (m Manager) Create(ctx context.Context, opts types.GuestCreateOption, host *models.Host, vols []*models.Volume) (*guest.Guest, error) {
-	if vols == nil {
-		var err error
-		if vols, err = extractVols(opts); err != nil {
-			return nil, err
-		}
+func (m Manager) Create(ctx context.Context, opts types.GuestCreateOption, host *models.Host) (*guest.Guest, error) {
+	vols, err := extractVols(opts.Resources)
+	if err != nil {
+		return nil, err
 	}
 
 	// Creates metadata.
@@ -544,7 +563,7 @@ func (m Manager) AttachConsole(ctx context.Context, id string, stream io.ReadWri
 	}
 
 	if g.LambdaOption != nil {
-		if err = g.Wait(models.StatusRunning, false); err != nil {
+		if err = g.Wait(meta.StatusRunning, false); err != nil {
 			return errors.Trace(err)
 		}
 		flags.Commands = g.LambdaOption.Cmd
