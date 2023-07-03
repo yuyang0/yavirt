@@ -6,7 +6,7 @@ import (
 
 	"github.com/projecteru2/libyavirt/types"
 	"github.com/projecteru2/yavirt/internal/image"
-	"github.com/projecteru2/yavirt/internal/virt/guest/manager"
+	"github.com/projecteru2/yavirt/internal/util"
 	virtypes "github.com/projecteru2/yavirt/internal/virt/types"
 )
 
@@ -26,7 +26,7 @@ type Service interface {
 	AttachGuest(ctx context.Context, id string, stream io.ReadWriteCloser, flags virtypes.OpenConsoleFlags) (err error)
 	ResizeConsoleWindow(ctx context.Context, id string, height, width uint) (err error)
 	Wait(ctx context.Context, id string, block bool) (msg string, code int, err error)
-	WatchGuestEvents(context.Context) (*manager.Watcher, error)
+	WatchGuestEvents(context.Context) (*util.Watcher, error)
 
 	// Guest utilities
 	ExecuteGuest(ctx context.Context, id string, commands []string) (*types.ExecuteGuestMessage, error)

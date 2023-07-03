@@ -2,10 +2,10 @@ package guest
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/urfave/cli/v2"
 
+	"github.com/projecteru2/libyavirt/types"
 	"github.com/projecteru2/yavirt/cmd/run"
 	"github.com/projecteru2/yavirt/pkg/errors"
 	"github.com/projecteru2/yavirt/pkg/log"
@@ -35,7 +35,7 @@ func start(c *cli.Context, runtime run.Runtime) error {
 	id := c.Args().First()
 	log.Debugf("Starting guest %s", id)
 
-	if err := runtime.Guest.Start(runtime.VirtContext(), id); err != nil {
+	if err := runtime.Svc.ControlGuest(runtime.VirtContext(), id, types.OpStart, false); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -49,7 +49,7 @@ func suspend(c *cli.Context, runtime run.Runtime) error {
 
 	id := c.Args().First()
 	log.Debugf("Suspending guest %s", id)
-	if err := runtime.Guest.Suspend(runtime.VirtContext(), id); err != nil {
+	if err := runtime.Svc.ControlGuest(runtime.VirtContext(), id, types.OpSuspend, false); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -63,7 +63,7 @@ func resume(c *cli.Context, runtime run.Runtime) error {
 
 	id := c.Args().First()
 	log.Debugf("Resuming guest %s", id)
-	if err := runtime.Guest.Resume(runtime.VirtContext(), id); err != nil {
+	if err := runtime.Svc.ControlGuest(runtime.VirtContext(), id, types.OpResume, false); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -77,7 +77,7 @@ func stop(c *cli.Context, runtime run.Runtime) error {
 
 	id := c.Args().First()
 	log.Debugf("Stopping guest %s", id)
-	if err := runtime.Guest.Stop(runtime.VirtContext(), id, c.Bool("force")); err != nil {
+	if err := runtime.Svc.ControlGuest(runtime.VirtContext(), id, types.OpStop, c.Bool("force")); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -92,19 +92,11 @@ func destroy(c *cli.Context, runtime run.Runtime) (err error) {
 	id := c.Args().First()
 	log.Debugf("Destroying guest %s", id)
 
-	done, err := runtime.Guest.Destroy(runtime.VirtContext(), id, c.Bool("force"))
+	err = runtime.Svc.ControlGuest(runtime.VirtContext(), id, types.OpDestroy, c.Bool("force"))
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	select {
-	case err = <-done:
-	case <-time.After(time.Minute):
-		err = errors.ErrTimeout
-	}
-	if err != nil {
-		return errors.Trace(err)
-	}
 	fmt.Printf("%s destroyed\n", id)
 
 	return nil

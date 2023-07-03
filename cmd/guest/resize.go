@@ -49,7 +49,7 @@ func resize(c *cli.Context, runtime run.Runtime) (err error) {
 		Mem: mem,
 		//TODO: add resources
 	}
-	if err = runtime.Guest.Resize(runtime.VirtContext(), req); err != nil {
+	if err = runtime.Svc.ResizeGuest(runtime.VirtContext(), req); err != nil {
 		return errors.Trace(err)
 	}
 

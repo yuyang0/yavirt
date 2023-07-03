@@ -51,11 +51,6 @@ func Command() *cli.Command {
 				Action: run.Run(destroy),
 			},
 			{
-				Name:   "forward",
-				Flags:  forwardFlags(),
-				Action: run.Run(forward),
-			},
-			{
 				Name:   "resize",
 				Flags:  resizeFlags(),
 				Action: run.Run(resize),

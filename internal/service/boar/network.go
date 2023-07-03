@@ -4,8 +4,11 @@ import (
 	"context"
 
 	"github.com/projecteru2/libyavirt/types"
+	"github.com/projecteru2/yavirt/internal/meta"
 	"github.com/projecteru2/yavirt/internal/metrics"
+	"github.com/projecteru2/yavirt/internal/virt/guest"
 	"github.com/projecteru2/yavirt/internal/vnet"
+	"github.com/projecteru2/yavirt/pkg/errors"
 	"github.com/projecteru2/yavirt/pkg/log"
 
 	vlanhandler "github.com/projecteru2/yavirt/internal/vnet/handler/vlan"
@@ -13,16 +16,26 @@ import (
 
 // ConnectNetwork .
 func (svc *Boar) ConnectNetwork(ctx context.Context, id, network, ipv4 string) (cidr string, err error) {
-	if cidr, err = svc.guest.ConnectExtraNetwork(ctx, id, network, ipv4); err != nil {
+	var ip meta.IP
+
+	if err := svc.ctrl(ctx, id, miscOp, func(g *guest.Guest) (ce error) {
+		ip, ce = g.ConnectExtraNetwork(network, ipv4)
+		return ce
+	}, nil); err != nil {
 		log.ErrorStack(err)
 		metrics.IncrError()
+		return "", errors.Trace(err)
 	}
-	return
+
+	return ip.CIDR(), nil
 }
 
 // DisconnectNetwork .
 func (svc *Boar) DisconnectNetwork(ctx context.Context, id, network string) (err error) {
-	if err = svc.guest.DisconnectExtraNetwork(ctx, id, network); err != nil {
+	err = svc.ctrl(ctx, id, miscOp, func(g *guest.Guest) error {
+		return g.DisconnectExtraNetwork(network)
+	}, nil)
+	if err != nil {
 		log.ErrorStack(err)
 		metrics.IncrError()
 	}

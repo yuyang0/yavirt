@@ -2,11 +2,18 @@ package boar
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"regexp"
+	"strings"
+	"sync"
 
 	"github.com/projecteru2/libyavirt/types"
-	"github.com/projecteru2/yavirt/internal/metrics"
-	"github.com/projecteru2/yavirt/pkg/log"
+	"github.com/projecteru2/yavirt/internal/image"
+	"github.com/projecteru2/yavirt/pkg/errors"
 )
+
+var imageMutex sync.Mutex
 
 func (svc *Boar) PushImage(_ context.Context, _, _ string) (err error) {
 	// todo
@@ -14,23 +21,54 @@ func (svc *Boar) PushImage(_ context.Context, _, _ string) (err error) {
 }
 
 func (svc *Boar) RemoveImage(ctx context.Context, imageName, user string, force, prune bool) (removed []string, err error) {
-	if removed, err = svc.guest.RemoveImage(ctx, imageName, user, force, prune); err != nil {
-		log.ErrorStack(err)
-		metrics.IncrError()
+	defer logErr(err)
+
+	img, err := image.LoadImage(imageName, user)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	return
+
+	imageMutex.Lock()
+	defer imageMutex.Unlock()
+
+	if exists, err := image.ImageExists(img); err != nil {
+		return nil, errors.Trace(err)
+	} else if exists {
+		if err = os.Remove(img.Filepath()); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
+	return []string{img.GetID()}, nil
 }
 
-func (svc *Boar) ListImage(ctx context.Context, filter string) ([]types.SysImage, error) {
-	imgs, err := svc.guest.ListImage(ctx, filter)
+func (svc *Boar) ListImage(ctx context.Context, filter string) (ans []types.SysImage, err error) {
+	defer logErr(err)
+
+	imgs, err := image.ListSysImages()
 	if err != nil {
-		log.ErrorStack(err)
-		metrics.IncrError()
+		return nil, err
 	}
 
-	images := []types.SysImage{}
-	for _, img := range imgs {
-		images = append(images, types.SysImage{
+	images := []image.Image{}
+	if len(filter) < 1 {
+		images = imgs
+	} else {
+		var regExp *regexp.Regexp
+		filter = strings.ReplaceAll(filter, "*", ".*")
+		if regExp, err = regexp.Compile(fmt.Sprintf("%s%s%s", "^", filter, "$")); err != nil {
+			return nil, err
+		}
+
+		for _, img := range imgs {
+			if regExp.MatchString(img.GetName()) {
+				images = append(images, img)
+			}
+		}
+	}
+
+	for _, img := range images {
+		ans = append(ans, types.SysImage{
 			Name:   img.GetName(),
 			User:   img.GetUser(),
 			Distro: img.GetDistro(),
@@ -39,7 +77,7 @@ func (svc *Boar) ListImage(ctx context.Context, filter string) ([]types.SysImage
 		})
 	}
 
-	return images, err
+	return ans, err
 }
 
 func (svc *Boar) PullImage(context.Context, string, bool) (msg string, err error) {
@@ -48,9 +86,25 @@ func (svc *Boar) PullImage(context.Context, string, bool) (msg string, err error
 }
 
 func (svc *Boar) DigestImage(ctx context.Context, imageName string, local bool) (digest []string, err error) {
-	if digest, err = svc.guest.DigestImage(ctx, imageName, local); err != nil {
-		log.ErrorStack(err)
-		metrics.IncrError()
+	defer logErr(err)
+
+	if !local {
+		// TODO: wait for image-hub implementation and calico update
+		return []string{""}, nil
 	}
-	return
+
+	// If not exists return error
+	// If exists return digests
+
+	img, err := image.LoadSysImage(imageName)
+	if err != nil {
+		return nil, err
+	}
+
+	hash, err := img.UpdateHash()
+	if err != nil {
+		return nil, err
+	}
+
+	return []string{hash}, nil
 }

@@ -38,7 +38,7 @@ func disconnectExtraNetwork(c *cli.Context, runtime run.Runtime) error {
 
 	network := c.String("network")
 
-	if err := runtime.Guest.DisconnectExtraNetwork(runtime.VirtContext(), id, network); err != nil {
+	if err := runtime.Svc.DisconnectNetwork(runtime.VirtContext(), id, network); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -56,7 +56,7 @@ func connectExtraNetwork(c *cli.Context, runtime run.Runtime) error {
 	network := c.String("network")
 	ipv4 := c.String("ipv4")
 
-	dest, err := runtime.Guest.ConnectExtraNetwork(runtime.VirtContext(), id, network, ipv4)
+	dest, err := runtime.Svc.ConnectNetwork(runtime.VirtContext(), id, network, ipv4)
 	if err != nil {
 		return errors.Trace(err)
 	}

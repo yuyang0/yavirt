@@ -3,7 +3,7 @@ package boar
 import (
 	"context"
 	"fmt"
-	"io"
+	"time"
 
 	"github.com/projecteru2/libyavirt/types"
 
@@ -11,14 +11,16 @@ import (
 
 	"github.com/projecteru2/yavirt/configs"
 	"github.com/projecteru2/yavirt/internal/image"
+	"github.com/projecteru2/yavirt/internal/meta"
 	"github.com/projecteru2/yavirt/internal/metrics"
 	"github.com/projecteru2/yavirt/internal/models"
 	"github.com/projecteru2/yavirt/internal/util"
 	"github.com/projecteru2/yavirt/internal/ver"
-	"github.com/projecteru2/yavirt/internal/virt/guest/manager"
+	"github.com/projecteru2/yavirt/internal/virt/guest"
 	virtypes "github.com/projecteru2/yavirt/internal/virt/types"
 	calihandler "github.com/projecteru2/yavirt/internal/vnet/handler/calico"
 	"github.com/projecteru2/yavirt/pkg/errors"
+	"github.com/projecteru2/yavirt/pkg/idgen"
 	"github.com/projecteru2/yavirt/pkg/log"
 	"github.com/projecteru2/yavirt/pkg/utils"
 	"github.com/projecteru2/yavirt/pkg/utils/hardware"
@@ -29,17 +31,22 @@ type Boar struct {
 	Host        *models.Host
 	BootGuestCh chan<- string
 	caliHandler *calihandler.Handler
-	guest       manager.Manageable
 
 	pid2ExitCode   *utils.ExitCodeMap
 	RecoverGuestCh chan<- string
+
+	serializer *serializer
+	watchers   *util.Watchers
 }
 
 func New(ctx context.Context) (br *Boar, err error) {
 	br = &Boar{
-		guest:        manager.New(),
 		pid2ExitCode: utils.NewSyncMap(),
+		serializer:   newSerializer(),
+		watchers:     util.NewWatchers(),
 	}
+
+	go br.watchers.Run()
 
 	if br.Host, err = models.LoadHost(); err != nil {
 		return br, errors.Trace(err)
@@ -153,7 +160,7 @@ func (svc *Boar) Info() (*types.HostInfo, error) {
 
 // GetGuest .
 func (svc *Boar) GetGuest(ctx context.Context, id string) (*types.Guest, error) {
-	vg, err := svc.guest.Load(ctx, id)
+	vg, err := svc.loadGuest(ctx, id)
 	if err != nil {
 		log.ErrorStack(err)
 		metrics.IncrError()
@@ -164,7 +171,7 @@ func (svc *Boar) GetGuest(ctx context.Context, id string) (*types.Guest, error) 
 
 // GetGuestIDList .
 func (svc *Boar) GetGuestIDList(ctx context.Context) ([]string, error) {
-	ids, err := svc.guest.ListLocalIDs(ctx, true)
+	ids, err := svc.ListLocalIDs(ctx, true)
 	if err != nil {
 		log.ErrorStack(err)
 		metrics.IncrError()
@@ -175,7 +182,7 @@ func (svc *Boar) GetGuestIDList(ctx context.Context) ([]string, error) {
 
 // GetGuestUUID .
 func (svc *Boar) GetGuestUUID(ctx context.Context, id string) (string, error) {
-	uuid, err := svc.guest.LoadUUID(ctx, id)
+	uuid, err := svc.LoadUUID(ctx, id)
 	if err != nil {
 		log.ErrorStack(err)
 		metrics.IncrError()
@@ -184,165 +191,179 @@ func (svc *Boar) GetGuestUUID(ctx context.Context, id string) (string, error) {
 	return uuid, nil
 }
 
-// CreateGuest .
-func (svc *Boar) CreateGuest(ctx context.Context, opts virtypes.GuestCreateOption) (*types.Guest, error) {
-	if opts.CPU == 0 {
-		opts.CPU = utils.Min(svc.Host.CPU, configs.Conf.MaxCPU)
-	}
-	if opts.Mem == 0 {
-		opts.Mem = utils.Min(svc.Host.Memory, configs.Conf.MaxMemory)
-	}
-
-	g, err := svc.guest.Create(ctx, opts, svc.Host)
-	if err != nil {
-		log.ErrorStack(err)
-		metrics.IncrError()
-		return nil, err
-	}
-
-	go func() {
-		svc.BootGuestCh <- g.ID
-	}()
-
-	return convGuestResp(g.Guest), nil
-}
-
 // CaptureGuest .
 func (svc *Boar) CaptureGuest(ctx context.Context, req types.CaptureGuestReq) (uimg *image.UserImage, err error) {
-	if uimg, err = svc.guest.Capture(ctx, req.VirtID(), req.User, req.Name, req.Overridden); err != nil {
-		log.ErrorStack(err)
-		metrics.IncrError()
+	defer logErr(err)
+
+	g, err := svc.loadGuest(ctx, req.ID)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	return
+	uImg, err := g.Capture(req.User, req.Name, req.Overridden)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return uImg, nil
 }
 
-// ResizeGuest .
+// ResizeGuest re-allocates spec or volumes.
 func (svc *Boar) ResizeGuest(ctx context.Context, opts *virtypes.GuestResizeOption) (err error) {
-	// vols := map[string]volume.Volume{}
-	// for _, v := range opts.Volumes {
-	// 	vol, err := models.NewDataVolume(v.Mount, v.Capacity, v.IO)
-	// 	if err != nil {
-	// 		return errors.Trace(err)
-	// 	}
-	// 	vols[vol.MountDir] = vol
-	// }
-	if err = svc.guest.Resize(ctx, opts); err != nil {
-		log.ErrorStack(err)
-		metrics.IncrError()
-	}
-	return
-}
+	defer logErr(err)
 
-// ControlGuest .
-func (svc *Boar) ControlGuest(ctx context.Context, id, operation string, force bool) (err error) {
-	switch operation {
-	case types.OpStart:
-		err = svc.guest.Start(ctx, id)
-	case types.OpStop:
-		err = svc.guest.Stop(ctx, id, force)
-	case types.OpDestroy:
-		_, err = svc.guest.Destroy(ctx, id, force)
-	case types.OpSuspend:
-		err = svc.guest.Suspend(ctx, id)
-	case types.OpResume:
-		err = svc.guest.Resume(ctx, id)
-	}
-
+	vols, err := extractVols(opts.Resources)
 	if err != nil {
-		log.ErrorStack(err)
-		metrics.IncrError()
-		return errors.Trace(err)
+		return err
 	}
-
-	return nil
-}
-
-// AttachGuest .
-func (svc *Boar) AttachGuest(ctx context.Context, id string, stream io.ReadWriteCloser, flags virtypes.OpenConsoleFlags) (err error) {
-	if err = svc.guest.AttachConsole(ctx, id, stream, flags); err != nil {
-		log.ErrorStack(err)
-		metrics.IncrError()
-	}
-	return
-}
-
-// ResizeConsoleWindow .
-func (svc *Boar) ResizeConsoleWindow(ctx context.Context, id string, height, width uint) (err error) {
-	if err = svc.guest.ResizeConsoleWindow(ctx, id, height, width); err != nil {
-		log.ErrorStack(err)
-		metrics.IncrError()
-	}
-	return
-}
-
-// ExecuteGuest .
-func (svc *Boar) ExecuteGuest(ctx context.Context, id string, commands []string) (*types.ExecuteGuestMessage, error) {
-	stdout, exitCode, pid, err := svc.guest.ExecuteCommand(ctx, id, commands)
-	if err != nil {
-		log.WarnStack(err)
-		metrics.IncrError()
-	}
-	svc.pid2ExitCode.Put(id, pid, exitCode)
-	return &types.ExecuteGuestMessage{
-		Pid:      pid,
-		Data:     stdout,
-		ExitCode: exitCode,
-	}, err
-}
-
-// ExecExitCode .
-func (svc *Boar) ExecExitCode(id string, pid int) (int, error) {
-	exitCode, err := svc.pid2ExitCode.Get(id, pid)
-	if err != nil {
-		log.ErrorStack(err)
-		metrics.IncrError()
-		return 0, err
-	}
-	return exitCode, nil
-}
-
-// Cat .
-func (svc *Boar) Cat(ctx context.Context, id, path string, dest io.WriteCloser) (err error) {
-	if err = svc.guest.Cat(ctx, id, path, dest); err != nil {
-		log.ErrorStack(err)
-		metrics.IncrError()
-	}
-	return
-}
-
-// CopyToGuest .
-func (svc *Boar) CopyToGuest(ctx context.Context, id, dest string, content chan []byte, override bool) (err error) {
-	if err = svc.guest.CopyToGuest(ctx, id, dest, content, override); err != nil {
-		log.ErrorStack(err)
-		metrics.IncrError()
-	}
-	return
-}
-
-// Log .
-func (svc *Boar) Log(ctx context.Context, id, logPath string, n int, dest io.WriteCloser) (err error) {
-	if err = svc.guest.Log(ctx, id, logPath, n, dest); err != nil {
-		log.ErrorStack(err)
-		metrics.IncrError()
-	}
-	return
+	return svc.ctrl(ctx, opts.ID, resizeOp, func(g *guest.Guest) error {
+		return g.Resize(opts.CPU, opts.Mem, vols)
+	}, nil)
 }
 
 // Wait .
 func (svc *Boar) Wait(ctx context.Context, id string, block bool) (msg string, code int, err error) {
-	err = svc.guest.Stop(ctx, id, !block)
+	defer logErr(err)
+
+	err = svc.stopGuest(ctx, id, !block)
+	if err != nil {
+		return "stop error", -1, err
+	}
+
+	err = svc.ctrl(ctx, id, miscOp, func(g *guest.Guest) error {
+		if err = g.Wait(meta.StatusStopped, block); err != nil {
+			return err
+		}
+
+		if g.LambdaOption != nil {
+			msg = string(g.LambdaOption.CmdOutput)
+			code = g.LambdaOption.ExitCode
+		}
+
+		return nil
+	}, nil)
+	return msg, code, err
+}
+
+// ListLocals lists all local guests.
+func (svc *Boar) ListLocalIDs(ctx context.Context, onlyERU bool) ([]string, error) {
+	ids, err := guest.ListLocalIDs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !onlyERU {
+		return ids, nil
+	}
+	var ans []string
+	for _, id := range ids {
+		if idgen.CheckID(id) {
+			ans = append(ans, id)
+		}
+	}
+	return ans, nil
+}
+
+// LoadUUID read a guest's UUID.
+func (svc *Boar) LoadUUID(ctx context.Context, id string) (string, error) {
+	g, err := svc.loadGuest(ctx, id)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return g.GetUUID()
+}
+
+// loadGuest read a guest from metadata.
+func (svc *Boar) loadGuest(ctx context.Context, id string) (*guest.Guest, error) {
+	g, err := models.LoadGuest(id)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var vg = guest.New(ctx, g)
+	if err := vg.Load(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return vg, nil
+}
+func (svc *Boar) WatchGuestEvents(context.Context) (*util.Watcher, error) {
+	return svc.NewWatcher()
+}
+
+func logErr(err error) {
 	if err != nil {
 		log.ErrorStack(err)
 		metrics.IncrError()
-		return "stop error", -1, err
 	}
-	if msg, code, err = svc.guest.Wait(ctx, id, block); err != nil {
-		log.ErrorStack(err)
-		metrics.IncrError()
-	}
-	return
 }
 
-func (svc *Boar) WatchGuestEvents(context.Context) (*manager.Watcher, error) {
-	return svc.guest.NewWatcher()
+type ctrlFunc func(*guest.Guest) error
+
+func (m *Boar) ctrl(ctx context.Context, id string, op op, fn ctrlFunc, rollback rollbackFunc) error { //nolint
+	_, err := m.doCtrl(ctx, id, op, func(g *guest.Guest) (any, error) {
+		return nil, fn(g)
+	}, rollback)
+	return err
 }
+
+type rollbackFunc func()
+type doCtrlFunc func(*guest.Guest) (any, error)
+
+func (m *Boar) doCtrl(ctx context.Context, id string, op op, fn doCtrlFunc, rollback rollbackFunc) (any, error) {
+	do := func(ctx context.Context) (any, error) {
+		g, err := m.loadGuest(ctx, id)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return fn(g)
+	}
+	return m.do(ctx, id, op, do, rollback)
+}
+
+type doFunc func(context.Context) (any, error)
+
+func (m *Boar) do(ctx context.Context, id string, op op, fn doFunc, rollback rollbackFunc) (any, error) {
+	t := &task{
+		id:  id,
+		op:  op,
+		do:  fn,
+		ctx: ctx,
+	}
+
+	dur := configs.Conf.VirtTimeout.Duration()
+	timeout := time.After(dur)
+
+	noti := m.serializer.Serialize(id, t)
+
+	var result any
+	var err error
+
+	select {
+	case <-noti.done:
+		result = noti.result()
+		err = noti.error()
+	case <-ctx.Done():
+		err = ctx.Err()
+	case <-timeout:
+		err = errors.Annotatef(errors.ErrTimeout, "exceed %v", dur)
+	}
+	if err != nil {
+		if rollback != nil {
+			rollback()
+		}
+		return nil, errors.Trace(err)
+	}
+
+	m.watchers.Watched(virtypes.Event{
+		ID:     id,
+		Type:   guestEventType,
+		Action: op.String(),
+		Time:   time.Now().UTC(),
+	})
+
+	return result, nil
+}
+
+func (m *Boar) NewWatcher() (*util.Watcher, error) {
+	return m.watchers.Get()
+}
+
+const guestEventType = "guest"

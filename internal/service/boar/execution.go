@@ -1,4 +1,4 @@
-package manager
+package boar
 
 import (
 	"container/list"

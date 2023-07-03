@@ -1,6 +1,7 @@
 package boar
 
 import (
+	"encoding/json"
 	"os"
 
 	"strings"
@@ -14,10 +15,60 @@ import (
 	"github.com/projecteru2/yavirt/internal/vnet/calico"
 	"github.com/projecteru2/yavirt/internal/vnet/device"
 	calihandler "github.com/projecteru2/yavirt/internal/vnet/handler/calico"
+	"github.com/projecteru2/yavirt/internal/volume"
+	"github.com/projecteru2/yavirt/internal/volume/local"
+	"github.com/projecteru2/yavirt/internal/volume/rbd"
 	"github.com/projecteru2/yavirt/pkg/errors"
 	"github.com/projecteru2/yavirt/pkg/netx"
+
+	stotypes "github.com/projecteru2/resource-storage/storage/types"
+	rbdtypes "github.com/yuyang0/resource-rbd/rbd/types"
 )
 
+func extractVols(resources map[string][]byte) ([]volume.Volume, error) {
+	var sysVol volume.Volume
+	vols := make([]volume.Volume, 1) // first place if for sys volume
+	stoResRaw, ok := resources["storage"]
+	if ok {
+		eParams := &stotypes.EngineParams{}
+		if err := json.Unmarshal(stoResRaw, eParams); err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, part := range eParams.Volumes {
+			vol, err := local.NewVolumeFromStr(part)
+			if err != nil {
+				return nil, err
+			}
+			vols = append(vols, vol) //nolint
+		}
+	}
+	rbdResRaw, ok := resources["rbd"]
+	if ok { //nolint
+		eParams := &rbdtypes.EngineParams{}
+		if err := json.Unmarshal(rbdResRaw, eParams); err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, part := range eParams.Volumes {
+			vol, err := rbd.NewFromStr(part)
+			if err != nil {
+				return nil, err
+			}
+			if vol.IsSys() {
+				if sysVol != nil {
+					return nil, errors.New("multiple sys volume")
+				}
+				sysVol = vol
+			}
+			vols = append(vols, vol) //nolint
+		}
+	}
+	if sysVol != nil {
+		vols[0] = sysVol
+	} else {
+		vols = vols[1:]
+	}
+	return vols, nil
+}
 func (svc *Boar) setupCalico() error {
 	if !svc.couldSetupCalico() {
 		if svc.Host.NetworkMode == vnet.NetworkCalico {

@@ -47,7 +47,6 @@ mock: deps
 	mockery --dir pkg/utils --output pkg/utils/mocks --name Locker
 	mockery --dir internal/virt/agent --output internal/virt/agent/mocks --all
 	mockery --dir internal/virt/domain --output internal/virt/domain/mocks --name Domain
-	mockery --dir internal/virt/guest/manager --output internal/virt/guest/manager/mocks --name Manageable
 	mockery --dir internal/virt/guest --output internal/virt/guest/mocks --name Bot
 	mockery --dir internal/virt/guestfs --output internal/virt/guestfs/mocks --name Guestfs
 	mockery --dir internal/volume --output internal/volume/mocks --name Volume

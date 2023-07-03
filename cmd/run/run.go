@@ -10,8 +10,9 @@ import (
 
 	"github.com/projecteru2/yavirt/configs"
 	"github.com/projecteru2/yavirt/internal/models"
+	"github.com/projecteru2/yavirt/internal/service"
+	"github.com/projecteru2/yavirt/internal/service/boar"
 	"github.com/projecteru2/yavirt/internal/util"
-	"github.com/projecteru2/yavirt/internal/virt/guest/manager"
 	"github.com/projecteru2/yavirt/internal/vnet"
 	"github.com/projecteru2/yavirt/internal/vnet/calico"
 	calinet "github.com/projecteru2/yavirt/internal/vnet/calico"
@@ -37,7 +38,7 @@ type Runtime struct {
 	Device        *device.Driver
 	CalicoDriver  *calinet.Driver
 	CalicoHandler *calihandler.Handler
-	Guest         manager.Manager
+	Svc           service.Service
 }
 
 // VirtContext .
@@ -61,7 +62,7 @@ func (r Runtime) ConvDecimal(ipv4 string) int64 {
 
 // Run .
 func Run(fn Runner) cli.ActionFunc {
-	return func(c *cli.Context) error {
+	return func(c *cli.Context) (err error) {
 		cfg := &configs.Conf
 
 		if err := cfg.Load([]string{c.String("config")}); err != nil {
@@ -71,7 +72,10 @@ func Run(fn Runner) cli.ActionFunc {
 			return err
 		}
 		runtime.Ctx, runtime.CancelFn = context.WithTimeout(context.Background(), time.Duration(c.Int("timeout"))*time.Second)
-		runtime.Guest = manager.New()
+		runtime.Svc, err = boar.New(c.Context)
+		if err != nil {
+			return errors.Trace(err)
+		}
 		if err := setup(); err != nil {
 			return errors.Trace(err)
 		}

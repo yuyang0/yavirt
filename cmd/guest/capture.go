@@ -5,6 +5,7 @@ import (
 
 	"github.com/urfave/cli/v2"
 
+	"github.com/projecteru2/libyavirt/types"
 	"github.com/projecteru2/yavirt/cmd/run"
 	"github.com/projecteru2/yavirt/pkg/errors"
 )
@@ -34,7 +35,15 @@ func capture(c *cli.Context, runtime run.Runtime) error {
 	user := c.String("user")
 	name := c.String("name")
 	overridden := c.Bool("overridden")
-	_, err := runtime.Guest.Capture(runtime.VirtContext(), id, user, name, overridden)
+	req := types.CaptureGuestReq{
+		GuestReq: types.GuestReq{
+			ID: id,
+		},
+		User:       user,
+		Name:       name,
+		Overridden: overridden,
+	}
+	_, err := runtime.Svc.CaptureGuest(runtime.VirtContext(), req)
 	if err != nil {
 		return errors.Trace(err)
 	}

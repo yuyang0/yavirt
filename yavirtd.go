@@ -103,21 +103,22 @@ func Run(c *cli.Context) error {
 	if err := initConfig(c); err != nil {
 		return err
 	}
-	dump, err := configs.Conf.Dump()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	host, err := models.LoadHost()
-	if err != nil {
-		return err
-	}
 	deferSentry, err := log.Setup(configs.Conf.LogLevel, configs.Conf.LogFile, configs.Conf.LogSentry)
 	if err != nil {
 		return err
 	}
 	defer deferSentry()
-
+	// log config
+	dump, err := configs.Conf.Dump()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	log.Infof("%s", dump)
+
+	host, err := models.LoadHost()
+	if err != nil {
+		return err
+	}
 
 	if err := store.Setup(configs.Conf, nil); err != nil {
 		return err

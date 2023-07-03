@@ -83,7 +83,7 @@ func create(c *cli.Context, runtime run.Runtime) error {
 	runtime.Host.NetworkMode = network
 
 	for i := 0; i < cnt; i++ {
-		g, err := runtime.Guest.Create(runtime.VirtContext(), opts, runtime.Host)
+		g, err := runtime.Svc.CreateGuest(runtime.VirtContext(), opts)
 		if err != nil {
 			return err
 		}
