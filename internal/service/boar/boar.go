@@ -39,7 +39,7 @@ type Boar struct {
 	watchers   *util.Watchers
 }
 
-func New(ctx context.Context, cfg *configs.Config) (br *Boar, err error) {
+func New(_ context.Context, cfg *configs.Config) (br *Boar, err error) {
 	br = &Boar{
 		cfg:          cfg,
 		pid2ExitCode: utils.NewSyncMap(),

@@ -24,24 +24,24 @@ type Image interface { //nolint
 	Filename() string
 }
 
-// LoadImage loads an Image.
-func LoadImage(name, user string) (Image, error) {
+// Load loads an Image.
+func Load(name, user string) (Image, error) {
 	if len(user) > 0 {
 		return LoadUserImage(user, name)
 	}
 	return LoadSysImage(name)
 }
 
-// ListImages lists all images which belong to a specific user, or system-wide type.
-func ListImages(user string) ([]Image, error) {
+// List lists all images which belong to a specific user, or system-wide type.
+func List(user string) ([]Image, error) {
 	if len(user) > 0 {
 		return ListUserImages(user)
 	}
 	return ListSysImages()
 }
 
-// ImageExists whether the image file exists.
-func ImageExists(img Image) (bool, error) {
+// Exists whether the image file exists.
+func Exists(img Image) (bool, error) {
 	switch _, err := os.Stat(img.Filepath()); {
 	case err == nil:
 		return true, nil

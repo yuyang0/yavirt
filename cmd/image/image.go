@@ -96,7 +96,7 @@ func digestFlags() []cli.Flag {
 }
 
 func list(c *cli.Context, _ run.Runtime) error {
-	imgs, err := image.ListImages(c.String("user"))
+	imgs, err := image.List(c.String("user"))
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -114,7 +114,7 @@ func get(c *cli.Context, _ run.Runtime) error {
 		return errors.New("image name is required")
 	}
 
-	img, err := image.LoadImage(name, c.String("user"))
+	img, err := image.Load(name, c.String("user"))
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -163,7 +163,7 @@ func rm(c *cli.Context, _ run.Runtime) error {
 	}
 
 	user := c.String("user")
-	img, err := image.LoadImage(name, user)
+	img, err := image.Load(name, user)
 	if err != nil {
 		return errors.Trace(err)
 	}

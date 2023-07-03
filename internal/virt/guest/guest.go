@@ -190,7 +190,7 @@ func (g *Guest) attachVols(vols map[string]volume.Volume) error {
 			continue
 		}
 		vol.SetGuestID(g.ID)
-		vol.SetStatus(g.Status, true)
+		vol.SetStatus(g.Status, true) //nolint:errcheck
 		vol.GenerateID()
 		if err := g.attachVol(vol); err != nil {
 			return errors.Trace(err)

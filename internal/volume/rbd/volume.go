@@ -120,15 +120,15 @@ func (v *Volume) Cleanup() error {
 	return nil
 }
 
-func (v *Volume) CaptureImage(user, name string) (*image.UserImage, error) {
-	return nil, nil
+func (v *Volume) CaptureImage(user, name string) (uimg *image.UserImage, err error) { //nolint
+	return
 }
 
 func (v *Volume) Save() error {
 	return meta.Save(meta.Resources{v})
 }
 
-func (v *Volume) Amplify(delta int64, dom libvirt.Domain, ga agent.Interface, devPath string) (normDelta int64, err error) {
+func (v *Volume) Amplify(delta int64, dom libvirt.Domain, ga agent.Interface, devPath string) (normDelta int64, err error) { //nolint
 	return
 }
 

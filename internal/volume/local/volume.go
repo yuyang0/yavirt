@@ -113,18 +113,18 @@ func NewVolume() *Volume {
 	}
 }
 
-func (vol *Volume) Lock() error {
-	fn := fmt.Sprintf("%s.flock", vol.ID)
+func (v *Volume) Lock() error {
+	fn := fmt.Sprintf("%s.flock", v.ID)
 	fpth := filepath.Join(configs.Conf.VirtFlockDir, fn)
-	vol.flock = utils.NewFlock(fpth)
-	if err := vol.flock.Trylock(); err != nil {
+	v.flock = utils.NewFlock(fpth)
+	if err := v.flock.Trylock(); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
 }
 
-func (vol *Volume) Unlock() {
-	vol.flock.Close()
+func (v *Volume) Unlock() {
+	v.flock.Close()
 }
 
 func (v *Volume) GetSize() int64 {

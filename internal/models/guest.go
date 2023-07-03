@@ -161,7 +161,7 @@ func (g *Guest) SwitchVol(vol volume.Volume, idx int) error {
 func (g *Guest) Load(host *Host, networkHandler handler.Handler) (err error) {
 	g.Host = host
 
-	if g.Img, err = image.LoadImage(g.ImageName, g.ImageUser); err != nil {
+	if g.Img, err = image.Load(g.ImageName, g.ImageUser); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -309,7 +309,7 @@ func LoadGuest(id string) (*Guest, error) {
 
 // CreateGuest .
 func CreateGuest(opts types.GuestCreateOption, host *Host, vols []volume.Volume) (*Guest, error) {
-	img, err := image.LoadImage(opts.ImageName, opts.ImageUser)
+	img, err := image.Load(opts.ImageName, opts.ImageUser)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

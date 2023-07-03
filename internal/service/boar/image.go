@@ -20,10 +20,10 @@ func (svc *Boar) PushImage(_ context.Context, _, _ string) (err error) {
 	return
 }
 
-func (svc *Boar) RemoveImage(ctx context.Context, imageName, user string, force, prune bool) (removed []string, err error) {
+func (svc *Boar) RemoveImage(_ context.Context, imageName, user string, force, prune bool) (removed []string, err error) { //nolint
 	defer logErr(err)
 
-	img, err := image.LoadImage(imageName, user)
+	img, err := image.Load(imageName, user)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -31,7 +31,7 @@ func (svc *Boar) RemoveImage(ctx context.Context, imageName, user string, force,
 	imageMutex.Lock()
 	defer imageMutex.Unlock()
 
-	if exists, err := image.ImageExists(img); err != nil {
+	if exists, err := image.Exists(img); err != nil {
 		return nil, errors.Trace(err)
 	} else if exists {
 		if err = os.Remove(img.Filepath()); err != nil {
@@ -42,7 +42,7 @@ func (svc *Boar) RemoveImage(ctx context.Context, imageName, user string, force,
 	return []string{img.GetID()}, nil
 }
 
-func (svc *Boar) ListImage(ctx context.Context, filter string) (ans []types.SysImage, err error) {
+func (svc *Boar) ListImage(_ context.Context, filter string) (ans []types.SysImage, err error) {
 	defer logErr(err)
 
 	imgs, err := image.ListSysImages()
@@ -85,7 +85,7 @@ func (svc *Boar) PullImage(context.Context, string, bool) (msg string, err error
 	return
 }
 
-func (svc *Boar) DigestImage(ctx context.Context, imageName string, local bool) (digest []string, err error) {
+func (svc *Boar) DigestImage(_ context.Context, imageName string, local bool) (digest []string, err error) {
 	defer logErr(err)
 
 	if !local {

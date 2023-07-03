@@ -67,7 +67,7 @@ func (s *HTTPServer) Serve() (err error) {
 }
 
 // Stop .
-func (s *HTTPServer) Stop(force bool) {
+func (s *HTTPServer) Stop(_ bool) {
 	var err error
 	defer func() {
 		if err != nil {

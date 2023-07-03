@@ -96,7 +96,7 @@ func (img *SysImage) GetHash() string {
 
 // UpdateHash update and return the image's hash .
 func (img *SysImage) UpdateHash() (string, error) {
-	exists, err := ImageExists(img)
+	exists, err := Exists(img)
 	if err != nil {
 		return "", err
 	}

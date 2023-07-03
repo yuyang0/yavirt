@@ -20,24 +20,24 @@ func (api *SnapshotAPI) List() base.Snapshots {
 func (api *SnapshotAPI) Create() error {
 	return nil
 }
-func (api *SnapshotAPI) Commit(rootID string) error {
+func (api *SnapshotAPI) Commit(rootID string) error { //nolint
 	return nil
 }
-func (api *SnapshotAPI) CommitByDay(day int) error {
+func (api *SnapshotAPI) CommitByDay(day int) error { //nolint
 	return nil
 }
-func (api *SnapshotAPI) Delete(id string) error {
+func (api *SnapshotAPI) Delete(id string) error { //nolint
 	return nil
 }
 func (api *SnapshotAPI) DeleteAll() error {
 	return nil
 }
-func (api *SnapshotAPI) Restore(rootID string) error {
+func (api *SnapshotAPI) Restore(rootID string) error { //nolint
 	return nil
 }
-func (api *SnapshotAPI) Upload(id string, force bool) error {
+func (api *SnapshotAPI) Upload(id string, force bool) error { //nolint
 	return nil
 }
-func (api *SnapshotAPI) Download(id string) error {
+func (api *SnapshotAPI) Download(id string) error { //nolint
 	return nil
 }

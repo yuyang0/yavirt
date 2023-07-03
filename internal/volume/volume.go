@@ -16,7 +16,7 @@ import (
 	"github.com/projecteru2/yavirt/pkg/libvirt"
 )
 
-type Volume interface { //nolint
+type Volume interface { //nolint:interfacebloat
 	meta.GenericInterface
 
 	// getters

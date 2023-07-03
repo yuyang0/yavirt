@@ -31,8 +31,6 @@ const (
 var (
 	//go:embed templates/guest.xml
 	guestXML string
-	//go:embed templates/disk.xml
-	diskXML string
 )
 
 // Domain .
@@ -564,10 +562,6 @@ func (d *VirtDomain) AmplifyVolume(filepath string, cap uint64) error {
 
 func (d *VirtDomain) Lookup() (libvirt.Domain, error) {
 	return d.virt.LookupDomain(d.guest.ID)
-}
-
-func (d *VirtDomain) diskTemplateFilepath() string {
-	return filepath.Join(configs.Conf.VirtTmplDir, "disk.xml")
 }
 
 func (d *VirtDomain) guestTemplateFilepath() string {

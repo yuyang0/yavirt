@@ -1,6 +1,7 @@
 package guest
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -9,10 +10,11 @@ import (
 	"github.com/projecteru2/yavirt/cmd/run"
 	"github.com/projecteru2/yavirt/internal/virt/types"
 	"github.com/projecteru2/yavirt/internal/vnet"
-	"github.com/projecteru2/yavirt/internal/volume"
-	"github.com/projecteru2/yavirt/internal/volume/local"
 	"github.com/projecteru2/yavirt/pkg/errors"
 	"github.com/projecteru2/yavirt/pkg/utils"
+
+	stotypes "github.com/projecteru2/resource-storage/storage/types"
+	rbdtypes "github.com/yuyang0/resource-rbd/rbd/types"
 )
 
 func createFlags() []cli.Flag {
@@ -46,10 +48,10 @@ func createFlags() []cli.Flag {
 }
 
 func create(c *cli.Context, runtime run.Runtime) error {
-	// vols, err := getVols(c.String("storage"))
-	// if err != nil {
-	// 	return errors.Trace(err)
-	// }
+	res, err := generateResources(c)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	opts := types.GuestCreateOption{
 		CPU:       c.Int("cpu"),
@@ -57,7 +59,7 @@ func create(c *cli.Context, runtime run.Runtime) error {
 		ImageName: c.Args().First(),
 		ImageUser: c.String("image-user"),
 		DmiUUID:   c.String("dmi"),
-		//TODO: add resources
+		Resources: res,
 	}
 
 	cnt := c.Int("count")
@@ -94,21 +96,38 @@ func create(c *cli.Context, runtime run.Runtime) error {
 	return nil
 }
 
-func getVols(mounts string) ([]volume.Volume, error) {
-	if len(mounts) < 1 {
-		return nil, nil
-	}
-
-	var vols = []volume.Volume{}
-
-	for _, raw := range strings.Split(mounts, ",") {
-		vol, err := local.NewVolumeFromStr(raw)
-		if err != nil {
-			return nil, errors.Trace(err)
+func generateResources(c *cli.Context) (ans map[string][]byte, err error) {
+	ans = map[string][]byte{}
+	// for storage resources
+	{
+		mounts := c.String("storage")
+		if len(mounts) < 1 {
+			return
 		}
-
-		vols = append(vols, vol)
+		eParmas := stotypes.EngineParams{
+			Volumes: strings.Split(mounts, ","),
+		}
+		bs, err := json.Marshal(eParmas)
+		if err != nil {
+			return nil, err
+		}
+		ans["storage"] = bs
 	}
 
-	return vols, nil
+	// for rbd resources
+	{
+		mounts := c.String("rbd")
+		if len(mounts) < 1 {
+			return
+		}
+		eParmas := rbdtypes.EngineParams{
+			Volumes: strings.Split(mounts, ","),
+		}
+		bs, err := json.Marshal(eParmas)
+		if err != nil {
+			return nil, err
+		}
+		ans["rbd"] = bs
+	}
+	return
 }

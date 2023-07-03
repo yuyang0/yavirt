@@ -10,7 +10,7 @@ import (
 	virtypes "github.com/projecteru2/yavirt/internal/virt/types"
 )
 
-type Service interface {
+type Service interface { //nolint:interfacebloat
 	VirtContext(ctx context.Context) context.Context
 	Ping() map[string]string
 	Info() (*types.HostInfo, error)
