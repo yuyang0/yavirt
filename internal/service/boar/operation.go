@@ -32,7 +32,11 @@ type executeResult struct {
 func (svc *Boar) ExecuteGuest(ctx context.Context, id string, commands []string) (_ *types.ExecuteGuestMessage, err error) {
 	defer logErr(err)
 
-	exec := func(g *guest.Guest) (any, error) {
+	exec := func(ctx context.Context) (any, error) {
+		g, err := svc.loadGuest(ctx, id)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		output, exitCode, pid, err := g.ExecuteCommand(ctx, commands)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -40,7 +44,7 @@ func (svc *Boar) ExecuteGuest(ctx context.Context, id string, commands []string)
 		return &executeResult{output: output, exitCode: exitCode, pid: pid}, nil
 	}
 
-	res, err := svc.doCtrl(ctx, id, miscOp, exec, nil)
+	res, err := svc.do(ctx, id, miscOp, exec, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -96,7 +96,7 @@ func info(c *cli.Context, _ run.Runtime) (err error) {
 	if err := cfg.Prepare(c); err != nil {
 		return err
 	}
-	svc, err := boar.New(c.Context)
+	svc, err := boar.New(c.Context, &configs.Conf)
 	if err != nil {
 		return err
 	}

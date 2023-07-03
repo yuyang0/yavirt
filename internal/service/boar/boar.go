@@ -7,8 +7,6 @@ import (
 
 	"github.com/projecteru2/libyavirt/types"
 
-	"github.com/robfig/cron/v3"
-
 	"github.com/projecteru2/yavirt/configs"
 	"github.com/projecteru2/yavirt/internal/image"
 	"github.com/projecteru2/yavirt/internal/meta"
@@ -22,6 +20,7 @@ import (
 	"github.com/projecteru2/yavirt/pkg/errors"
 	"github.com/projecteru2/yavirt/pkg/idgen"
 	"github.com/projecteru2/yavirt/pkg/log"
+	"github.com/projecteru2/yavirt/pkg/store"
 	"github.com/projecteru2/yavirt/pkg/utils"
 	"github.com/projecteru2/yavirt/pkg/utils/hardware"
 )
@@ -29,6 +28,7 @@ import (
 // Boar .
 type Boar struct {
 	Host        *models.Host
+	cfg         *configs.Config
 	BootGuestCh chan<- string
 	caliHandler *calihandler.Handler
 
@@ -39,18 +39,24 @@ type Boar struct {
 	watchers   *util.Watchers
 }
 
-func New(ctx context.Context) (br *Boar, err error) {
+func New(ctx context.Context, cfg *configs.Config) (br *Boar, err error) {
 	br = &Boar{
+		cfg:          cfg,
 		pid2ExitCode: utils.NewSyncMap(),
 		serializer:   newSerializer(),
 		watchers:     util.NewWatchers(),
 	}
 
-	go br.watchers.Run()
-
-	if br.Host, err = models.LoadHost(); err != nil {
-		return br, errors.Trace(err)
+	br.Host, err = models.LoadHost()
+	if err != nil {
+		return nil, err
 	}
+	idgen.Setup(br.Host.ID, time.Now())
+
+	if err = store.Setup(configs.Conf, nil); err != nil {
+		return nil, err
+	}
+	go br.watchers.Run()
 
 	if err := br.setupCalico(); err != nil {
 		return br, errors.Trace(err)
@@ -65,72 +71,8 @@ func New(ctx context.Context) (br *Boar, err error) {
 	return
 }
 
-// TODO: Decide time
-func (svc *Boar) ScheduleSnapshotCreate() error {
-	c := cron.New()
-
-	// Everyday 3am
-	if _, err := c.AddFunc("0 3 * * *", svc.batchCreateSnapshot); err != nil {
-		return errors.Trace(err)
-	}
-
-	// Every Sunday 1am
-	if _, err := c.AddFunc("0 1 * * SUN", svc.batchCommitSnapshot); err != nil {
-		return errors.Trace(err)
-	}
-
-	// Start job asynchronously
-	c.Start()
-
-	return nil
-}
-
-func (svc *Boar) batchCreateSnapshot() {
-	guests, err := models.GetAllGuests()
-	if err != nil {
-		log.ErrorStack(err)
-		metrics.IncrError()
-		return
-	}
-
-	for _, g := range guests {
-		for _, volID := range g.VolIDs {
-			req := types.CreateSnapshotReq{
-				ID:    g.ID,
-				VolID: volID,
-			}
-
-			if err := svc.CreateSnapshot(
-				util.SetCalicoHandler(context.Background(), svc.caliHandler), req,
-			); err != nil {
-				log.ErrorStack(err)
-				metrics.IncrError()
-			}
-		}
-	}
-}
-
-func (svc *Boar) batchCommitSnapshot() {
-	guests, err := models.GetAllGuests()
-	if err != nil {
-		log.ErrorStack(err)
-		metrics.IncrError()
-		return
-	}
-
-	for _, g := range guests {
-		for _, volID := range g.VolIDs {
-			if err := svc.CommitSnapshotByDay(
-				util.SetCalicoHandler(context.Background(), svc.caliHandler),
-				g.ID,
-				volID,
-				configs.Conf.SnapshotRestorableDay,
-			); err != nil {
-				log.ErrorStack(err)
-				metrics.IncrError()
-			}
-		}
-	}
+func (svc *Boar) Close() {
+	store.Close()
 }
 
 // VirtContext .
@@ -214,9 +156,15 @@ func (svc *Boar) ResizeGuest(ctx context.Context, opts *virtypes.GuestResizeOpti
 	if err != nil {
 		return err
 	}
-	return svc.ctrl(ctx, opts.ID, resizeOp, func(g *guest.Guest) error {
-		return g.Resize(opts.CPU, opts.Mem, vols)
-	}, nil)
+	g, err := svc.loadGuest(ctx, opts.ID)
+	if err != nil {
+		return err
+	}
+	do := func(ctx context.Context) (any, error) {
+		return nil, g.Resize(opts.CPU, opts.Mem, vols)
+	}
+	_, err = svc.do(ctx, opts.ID, resizeOp, do, nil)
+	return
 }
 
 // Wait .
@@ -284,6 +232,7 @@ func (svc *Boar) loadGuest(ctx context.Context, id string) (*guest.Guest, error)
 
 	return vg, nil
 }
+
 func (svc *Boar) WatchGuestEvents(context.Context) (*util.Watcher, error) {
 	return svc.NewWatcher()
 }
@@ -296,31 +245,23 @@ func logErr(err error) {
 }
 
 type ctrlFunc func(*guest.Guest) error
-
-func (m *Boar) ctrl(ctx context.Context, id string, op op, fn ctrlFunc, rollback rollbackFunc) error { //nolint
-	_, err := m.doCtrl(ctx, id, op, func(g *guest.Guest) (any, error) {
-		return nil, fn(g)
-	}, rollback)
-	return err
-}
-
 type rollbackFunc func()
-type doCtrlFunc func(*guest.Guest) (any, error)
 
-func (m *Boar) doCtrl(ctx context.Context, id string, op op, fn doCtrlFunc, rollback rollbackFunc) (any, error) {
+func (svc *Boar) ctrl(ctx context.Context, id string, op op, fn ctrlFunc, rollback rollbackFunc) error { //nolint
 	do := func(ctx context.Context) (any, error) {
-		g, err := m.loadGuest(ctx, id)
+		g, err := svc.loadGuest(ctx, id)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return fn(g)
+		return nil, fn(g)
 	}
-	return m.do(ctx, id, op, do, rollback)
+	_, err := svc.do(ctx, id, op, do, rollback)
+	return err
 }
 
 type doFunc func(context.Context) (any, error)
 
-func (m *Boar) do(ctx context.Context, id string, op op, fn doFunc, rollback rollbackFunc) (any, error) {
+func (svc *Boar) do(ctx context.Context, id string, op op, fn doFunc, rollback rollbackFunc) (any, error) {
 	t := &task{
 		id:  id,
 		op:  op,
@@ -331,7 +272,7 @@ func (m *Boar) do(ctx context.Context, id string, op op, fn doFunc, rollback rol
 	dur := configs.Conf.VirtTimeout.Duration()
 	timeout := time.After(dur)
 
-	noti := m.serializer.Serialize(id, t)
+	noti := svc.serializer.Serialize(id, t)
 
 	var result any
 	var err error
@@ -352,7 +293,7 @@ func (m *Boar) do(ctx context.Context, id string, op op, fn doFunc, rollback rol
 		return nil, errors.Trace(err)
 	}
 
-	m.watchers.Watched(virtypes.Event{
+	svc.watchers.Watched(virtypes.Event{
 		ID:     id,
 		Type:   guestEventType,
 		Action: op.String(),
@@ -362,8 +303,8 @@ func (m *Boar) do(ctx context.Context, id string, op op, fn doFunc, rollback rol
 	return result, nil
 }
 
-func (m *Boar) NewWatcher() (*util.Watcher, error) {
-	return m.watchers.Get()
+func (svc *Boar) NewWatcher() (*util.Watcher, error) {
+	return svc.watchers.Get()
 }
 
 const guestEventType = "guest"

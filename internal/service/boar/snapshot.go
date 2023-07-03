@@ -4,9 +4,15 @@ import (
 	"context"
 
 	"github.com/projecteru2/libyavirt/types"
+	"github.com/projecteru2/yavirt/configs"
 	"github.com/projecteru2/yavirt/internal/meta"
+	"github.com/projecteru2/yavirt/internal/metrics"
+	"github.com/projecteru2/yavirt/internal/models"
+	"github.com/projecteru2/yavirt/internal/util"
 	"github.com/projecteru2/yavirt/internal/virt/guest"
 	"github.com/projecteru2/yavirt/pkg/errors"
+	"github.com/projecteru2/yavirt/pkg/log"
+	"github.com/robfig/cron/v3"
 )
 
 // ListSnapshot .
@@ -147,4 +153,72 @@ func (svc *Boar) RestoreSnapshot(ctx context.Context, req types.RestoreSnapshotR
 		}
 		return nil
 	}, nil)
+}
+
+// TODO: Decide time
+func (svc *Boar) ScheduleSnapshotCreate() error {
+	c := cron.New()
+
+	// Everyday 3am
+	if _, err := c.AddFunc("0 3 * * *", svc.batchCreateSnapshot); err != nil {
+		return errors.Trace(err)
+	}
+
+	// Every Sunday 1am
+	if _, err := c.AddFunc("0 1 * * SUN", svc.batchCommitSnapshot); err != nil {
+		return errors.Trace(err)
+	}
+
+	// Start job asynchronously
+	c.Start()
+
+	return nil
+}
+
+func (svc *Boar) batchCreateSnapshot() {
+	guests, err := models.GetAllGuests()
+	if err != nil {
+		log.ErrorStack(err)
+		metrics.IncrError()
+		return
+	}
+
+	for _, g := range guests {
+		for _, volID := range g.VolIDs {
+			req := types.CreateSnapshotReq{
+				ID:    g.ID,
+				VolID: volID,
+			}
+
+			if err := svc.CreateSnapshot(
+				util.SetCalicoHandler(context.Background(), svc.caliHandler), req,
+			); err != nil {
+				log.ErrorStack(err)
+				metrics.IncrError()
+			}
+		}
+	}
+}
+
+func (svc *Boar) batchCommitSnapshot() {
+	guests, err := models.GetAllGuests()
+	if err != nil {
+		log.ErrorStack(err)
+		metrics.IncrError()
+		return
+	}
+
+	for _, g := range guests {
+		for _, volID := range g.VolIDs {
+			if err := svc.CommitSnapshotByDay(
+				util.SetCalicoHandler(context.Background(), svc.caliHandler),
+				g.ID,
+				volID,
+				configs.Conf.SnapshotRestorableDay,
+			); err != nil {
+				log.ErrorStack(err)
+				metrics.IncrError()
+			}
+		}
+	}
 }

@@ -69,6 +69,7 @@ func extractVols(resources map[string][]byte) ([]volume.Volume, error) {
 	}
 	return vols, nil
 }
+
 func (svc *Boar) setupCalico() error {
 	if !svc.couldSetupCalico() {
 		if svc.Host.NetworkMode == vnet.NetworkCalico {

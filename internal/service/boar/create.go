@@ -86,13 +86,13 @@ func (svc *Boar) Create(ctx context.Context, opts virtypes.GuestCreateOption, ho
 	}
 
 	// Creates the resource.
-	create := func(_ *guest.Guest) (any, error) {
+	create := func(ctx context.Context) (any, error) {
 		var err error
 		vg, err = svc.create(ctx, g)
 		return vg, err
 	}
 
-	res, err := svc.doCtrl(ctx, g.ID, createOp, create, destroy)
+	res, err := svc.do(ctx, g.ID, createOp, create, destroy)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

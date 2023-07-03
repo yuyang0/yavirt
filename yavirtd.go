@@ -10,13 +10,11 @@ import (
 	"strings"
 	"sync"
 	"syscall"
-	"time"
 
 	cli "github.com/urfave/cli/v2"
 
 	"github.com/projecteru2/yavirt/configs"
 	"github.com/projecteru2/yavirt/internal/metrics"
-	"github.com/projecteru2/yavirt/internal/models"
 	grpcserver "github.com/projecteru2/yavirt/internal/server/grpc"
 	httpserver "github.com/projecteru2/yavirt/internal/server/http"
 	"github.com/projecteru2/yavirt/internal/service/boar"
@@ -24,9 +22,7 @@ import (
 	"github.com/projecteru2/yavirt/internal/virt"
 	"github.com/projecteru2/yavirt/internal/virt/guest"
 	"github.com/projecteru2/yavirt/pkg/errors"
-	"github.com/projecteru2/yavirt/pkg/idgen"
 	"github.com/projecteru2/yavirt/pkg/log"
-	"github.com/projecteru2/yavirt/pkg/store"
 )
 
 func main() {
@@ -115,21 +111,11 @@ func Run(c *cli.Context) error {
 	}
 	log.Infof("%s", dump)
 
-	host, err := models.LoadHost()
+	br, err := boar.New(c.Context, &configs.Conf)
 	if err != nil {
 		return err
 	}
-
-	if err := store.Setup(configs.Conf, nil); err != nil {
-		return err
-	}
-	defer store.Close()
-
-	br, err := boar.New(c.Context)
-	if err != nil {
-		return err
-	}
-	idgen.Setup(host.ID, time.Now())
+	defer br.Close()
 
 	if err := virt.Cleanup(); err != nil {
 		return errors.Trace(err)
