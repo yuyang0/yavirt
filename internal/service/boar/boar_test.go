@@ -1,13 +1,5 @@
 package boar
 
-import (
-	"github.com/projecteru2/yavirt/internal/models"
-)
-
-func init() {
-	models.Setup()
-}
-
 // func TestCreateGuest(t *testing.T) {
 // 	svc := testService(t)
 

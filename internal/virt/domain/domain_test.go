@@ -11,10 +11,6 @@ import (
 	"github.com/projecteru2/yavirt/pkg/utils"
 )
 
-func init() {
-	models.Setup()
-}
-
 func TestSetSpec(t *testing.T) {
 	libdom := &libmocks.Domain{}
 	defer libdom.AssertExpectations(t)

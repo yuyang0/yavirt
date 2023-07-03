@@ -131,8 +131,6 @@ func Run(c *cli.Context) error {
 	}
 	idgen.Setup(host.ID, time.Now())
 
-	models.Setup()
-
 	if err := virt.Cleanup(); err != nil {
 		return errors.Trace(err)
 	}

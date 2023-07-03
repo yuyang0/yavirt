@@ -29,7 +29,6 @@ const (
 
 func init() {
 	idgen.Setup(0, time.Now())
-	models.Setup()
 }
 
 func TestCreate_WithExtVolumes(t *testing.T) {

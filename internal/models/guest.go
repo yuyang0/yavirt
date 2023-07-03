@@ -293,32 +293,7 @@ func newGuest() *Guest {
 
 // LoadGuest .
 func LoadGuest(id string) (*Guest, error) {
-	return manager.LoadGuest(id)
-}
-
-// CreateGuest .
-func CreateGuest(opts types.GuestCreateOption, host *Host, vols []volume.Volume) (*Guest, error) {
-	return manager.CreateGuest(opts, host, vols)
-}
-
-// NewGuest creates a new guest.
-func NewGuest(host *Host, img image.Image) (*Guest, error) {
-	return manager.NewGuest(host, img)
-}
-
-// GetNodeGuests gets all guests which belong to the node.
-func GetNodeGuests(nodename string) ([]*Guest, error) {
-	return manager.GetNodeGuests(nodename)
-}
-
-// GetAllGuests .
-func GetAllGuests() ([]*Guest, error) {
-	return manager.GetAllGuests()
-}
-
-// LoadGuest .
-func (m *Manager) LoadGuest(id string) (*Guest, error) {
-	g, err := m.NewGuest(nil, nil)
+	g, err := NewGuest(nil, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -333,7 +308,7 @@ func (m *Manager) LoadGuest(id string) (*Guest, error) {
 }
 
 // CreateGuest .
-func (m *Manager) CreateGuest(opts types.GuestCreateOption, host *Host, vols []volume.Volume) (*Guest, error) {
+func CreateGuest(opts types.GuestCreateOption, host *Host, vols []volume.Volume) (*Guest, error) {
 	img, err := image.LoadImage(opts.ImageName, opts.ImageUser)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -396,7 +371,7 @@ func (m *Manager) CreateGuest(opts types.GuestCreateOption, host *Host, vols []v
 }
 
 // NewGuest creates a new guest.
-func (m *Manager) NewGuest(host *Host, img image.Image) (*Guest, error) {
+func NewGuest(host *Host, img image.Image) (*Guest, error) {
 	var guest = newGuest()
 
 	if host != nil {
@@ -420,7 +395,7 @@ func (m *Manager) NewGuest(host *Host, img image.Image) (*Guest, error) {
 }
 
 // GetNodeGuests gets all guests which belong to the node.
-func (m *Manager) GetNodeGuests(nodename string) ([]*Guest, error) {
+func GetNodeGuests(nodename string) ([]*Guest, error) {
 	ctx, cancel := meta.Context(context.Background())
 	defer cancel()
 
@@ -437,7 +412,7 @@ func (m *Manager) GetNodeGuests(nodename string) ([]*Guest, error) {
 			continue
 		}
 
-		g, err := m.LoadGuest(gid)
+		g, err := LoadGuest(gid)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -449,7 +424,7 @@ func (m *Manager) GetNodeGuests(nodename string) ([]*Guest, error) {
 }
 
 // GetAllGuests .
-func (m *Manager) GetAllGuests() ([]*Guest, error) {
+func GetAllGuests() ([]*Guest, error) {
 	var ctx, cancel = meta.Context(context.Background())
 	defer cancel()
 
