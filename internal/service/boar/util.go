@@ -10,6 +10,7 @@ import (
 
 	"github.com/projecteru2/libyavirt/types"
 	"github.com/projecteru2/yavirt/configs"
+	"github.com/projecteru2/yavirt/internal/meta"
 	"github.com/projecteru2/yavirt/internal/models"
 	"github.com/projecteru2/yavirt/internal/vnet"
 	"github.com/projecteru2/yavirt/internal/vnet/calico"
@@ -134,12 +135,14 @@ func convGuestResp(g *models.Guest) (resp *types.Guest) {
 	resp.CPU = g.CPU
 	resp.Mem = g.Memory
 	resp.Labels = g.JSONLabels
+	resp.Running = (g.Status == meta.StatusRunning)
 
 	if len(g.IPs) > 0 {
 		var ips = make([]string, len(g.IPs))
 		for i, ip := range g.IPs {
 			ips[i] = ip.IPAddr()
 		}
+		resp.IPs = ips
 		resp.Networks = map[string]string{"IP": strings.Join(ips, ", ")}
 	}
 

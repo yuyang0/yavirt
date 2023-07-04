@@ -64,7 +64,10 @@ func (y *GRPCYavirtd) GetGuest(ctx context.Context, opts *pb.GetGuestOptions) (*
 		ImageId:       guest.ImageID,
 		ImageName:     guest.ImageName,
 		Networks:      guest.Networks,
+		Ips:           guest.IPs,
 		Labels:        guest.Labels,
+		Hostname:      guest.Hostname,
+		Running:       guest.Running,
 	}, nil
 }
 
