@@ -18,7 +18,9 @@ var (
 	// MetricHeartbeatCount .
 	MetricHeartbeatCount = "yavirt_heartbeat_total"
 	// MetricErrorCount .
-	MetricErrorCount = "yavirt_error_total"
+	MetricErrorCount   = "yavirt_error_total"
+	MetricSvcTaskTotal = "yavirt_svc_task_total"
+	MetricSvcTasks     = "yavirt_svc_task_count"
 
 	metr *Metrics
 )
@@ -27,23 +29,23 @@ func init() {
 	hn := configs.Hostname()
 
 	metr = New(hn)
-	metr.RegisterCounter(MetricErrorCount, "yavirt errors", nil)         //nolint
-	metr.RegisterCounter(MetricHeartbeatCount, "yavirt heartbeats", nil) //nolint
+	metr.RegisterCounter(MetricErrorCount, "yavirt errors", nil)               //nolint
+	metr.RegisterCounter(MetricHeartbeatCount, "yavirt heartbeats", nil)       //nolint
+	metr.RegisterCounter(MetricSvcTaskTotal, "yavirt service task total", nil) //nolint
+	metr.RegisterGauge(MetricSvcTasks, "yavirt service tasks", nil)            //nolint
 }
 
 // Metrics .
 type Metrics struct {
-	host     string
-	counters map[string]*prometheus.CounterVec
-	gauges   map[string]*prometheus.GaugeVec
+	host       string
+	collectors map[string]prometheus.Collector
 }
 
 // New .
 func New(host string) *Metrics {
 	return &Metrics{
-		host:     host,
-		counters: map[string]*prometheus.CounterVec{},
-		gauges:   map[string]*prometheus.GaugeVec{},
+		host:       host,
+		collectors: map[string]prometheus.Collector{},
 	}
 }
 
@@ -60,8 +62,7 @@ func (m *Metrics) RegisterCounter(name, desc string, labels []string) error {
 	if err := prometheus.Register(col); err != nil {
 		return errors.Trace(err)
 	}
-
-	m.counters[name] = col
+	m.collectors[name] = col
 
 	return nil
 }
@@ -80,35 +81,63 @@ func (m *Metrics) RegisterGauge(name, desc string, labels []string) error {
 		return errors.Trace(err)
 	}
 
-	m.gauges[name] = col
+	m.collectors[name] = col
 
 	return nil
 }
 
 // Incr .
 func (m *Metrics) Incr(name string, labels map[string]string) error {
-	var col, exists = m.counters[name]
+	var collector, exists = m.collectors[name]
 	if !exists {
 		return errors.Errorf("collector %s not found", name)
 	}
 
 	labels = m.appendLabel(labels, "host", m.host)
+	switch col := collector.(type) {
+	case *prometheus.GaugeVec:
+		col.With(labels).Inc()
+	case *prometheus.CounterVec:
+		col.With(labels).Inc()
+	default:
+		return errors.Errorf("collector %s is not counter or guage", name)
+	}
 
-	col.With(labels).Inc()
+	return nil
+}
+
+// Decr .
+func (m *Metrics) Decr(name string, labels map[string]string) error {
+	var collector, exists = m.collectors[name]
+	if !exists {
+		return errors.Errorf("collector %s not found", name)
+	}
+
+	labels = m.appendLabel(labels, "host", m.host)
+	switch col := collector.(type) {
+	case *prometheus.GaugeVec:
+		col.With(labels).Dec()
+	default:
+		return errors.Errorf("collector %s is not gauge", name)
+	}
 
 	return nil
 }
 
 // Store .
 func (m *Metrics) Store(name string, value float64, labels map[string]string) error {
-	var col, exists = m.gauges[name]
+	var collector, exists = m.collectors[name]
 	if !exists {
 		return errors.Errorf("collector %s not found", name)
 	}
 
 	labels = m.appendLabel(labels, "host", m.host)
-
-	col.With(labels).Set(value)
+	switch col := collector.(type) {
+	case *prometheus.GaugeVec:
+		col.With(labels).Set(value)
+	default:
+		return errors.Errorf("collector %s is not gauge", name)
+	}
 
 	return nil
 }
@@ -140,6 +169,10 @@ func IncrHeartbeat() {
 // Incr .
 func Incr(name string, labels map[string]string) error {
 	return metr.Incr(name, labels)
+}
+
+func Decr(name string, labels map[string]string) error {
+	return metr.Decr(name, labels)
 }
 
 // Store .
