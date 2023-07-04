@@ -154,6 +154,7 @@ type Config struct {
 	Network NetworkConfig `toml:"network"`
 	Storage StorageConfig `toml:"storage"`
 
+	MaxConcurrency         int      `toml:"max_concurrency"`
 	ProfHTTPPort           int      `toml:"prof_http_port"`
 	BindHTTPAddr           string   `toml:"bind_http_addr"`
 	BindGRPCAddr           string   `toml:"bind_grpc_addr"`

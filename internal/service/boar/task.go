@@ -5,7 +5,11 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/panjf2000/ants/v2"
+	"github.com/projecteru2/yavirt/internal/metrics"
 	"github.com/projecteru2/yavirt/pkg/errors"
+	"github.com/projecteru2/yavirt/pkg/idgen"
+	"github.com/projecteru2/yavirt/pkg/log"
 )
 
 const (
@@ -27,19 +31,31 @@ func (op op) String() string {
 }
 
 type task struct {
-	id     string
-	op     op
-	do     func(context.Context) (any, error)
-	result any
-	ctx    context.Context
-	done   chan struct{}
-	once   sync.Once
-	err    error
+	sync.Mutex
+
+	id      string
+	guestID string
+	op      op
+	do      func(context.Context) (any, error)
+	res     any
+	done    chan struct{}
+	once    sync.Once
+	err     error
+}
+
+func newTask(id string, op op, fn doFunc) *task {
+	return &task{
+		id:      idgen.Next(),
+		guestID: id,
+		op:      op,
+		do:      fn,
+		done:    make(chan struct{}),
+	}
 }
 
 // String .
 func (t *task) String() string {
-	return fmt.Sprintf("<%s, %s>", t.op, t.id)
+	return fmt.Sprintf("%s <%s, %s>", t.id, t.op, t.guestID)
 }
 
 func (t *task) abort() {
@@ -52,19 +68,20 @@ func (t *task) terminate() { //nolint
 	// TODO
 }
 
-func (t *task) run() error {
+func (t *task) run(ctx context.Context) error {
 	defer t.finish()
 
-	select {
-	case <-t.ctx.Done():
-		if err := t.ctx.Err(); err != nil {
-			t.err = err
-		}
-	default:
-		t.result, t.err = t.do(t.ctx)
-	}
+	var res any
+	var err error
 
-	return t.err
+	select {
+	case <-ctx.Done():
+		err = ctx.Err()
+	default:
+		res, err = t.do(ctx)
+	}
+	t.setResult(res, err)
+	return err
 }
 
 func (t *task) finish() {
@@ -73,19 +90,64 @@ func (t *task) finish() {
 	})
 }
 
-type taskNotifier struct {
-	done chan struct{}
-	task *task
+func (t *task) result() (any, error) {
+	t.Lock()
+	defer t.Unlock()
+	return t.res, t.err
 }
 
-func (n taskNotifier) error() error {
-	return n.task.err
+func (t *task) setResult(res any, err error) {
+	t.Lock()
+	defer t.Unlock()
+
+	t.res, t.err = res, err
 }
 
-func (n taskNotifier) result() any {
-	return n.task.result
+type taskPool struct {
+	lck  sync.Mutex
+	mgr  map[string]*task
+	pool *ants.Pool
 }
 
-func (n taskNotifier) terminate() { //nolint
-	n.task.terminate()
+func newTaskPool(max int) (*taskPool, error) {
+	p, err := ants.NewPool(max, ants.WithNonblocking(true))
+	if err != nil {
+		return nil, err
+	}
+	return &taskPool{
+		pool: p,
+		mgr:  make(map[string]*task),
+	}, nil
+}
+
+func (p *taskPool) SubmitTask(ctx context.Context, t *task) (err error) {
+	p.lck.Lock()
+	defer p.lck.Unlock()
+	p.mgr[t.id] = t
+
+	err = p.pool.Submit(func() {
+		if err := t.run(ctx); err != nil {
+			log.ErrorStack(err)
+			metrics.IncrError()
+
+		}
+	})
+	if err != nil {
+		delete(p.mgr, t.id)
+	} else {
+		metrics.Incr(metrics.MetricSvcTaskTotal, nil) //nolint:errcheck
+		metrics.Incr(metrics.MetricSvcTasks, nil)     //nolint:errcheck
+	}
+	return
+}
+
+func (p *taskPool) doneTask(t *task) {
+	p.lck.Lock()
+	defer p.lck.Unlock()
+	delete(p.mgr, t.id)
+	metrics.Decr(metrics.MetricSvcTasks, nil) //nolint:errcheck
+}
+
+func (p *taskPool) Release() {
+	p.pool.Release()
 }

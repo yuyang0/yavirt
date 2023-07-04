@@ -29,25 +29,28 @@ import (
 type Boar struct {
 	Host        *models.Host
 	cfg         *configs.Config
+	pool        *taskPool
 	BootGuestCh chan<- string
 	caliHandler *calihandler.Handler
 
 	pid2ExitCode   *utils.ExitCodeMap
 	RecoverGuestCh chan<- string
 
-	serializer *serializer
-	watchers   *util.Watchers
+	watchers *util.Watchers
 }
 
 func New(_ context.Context, cfg *configs.Config) (br *Boar, err error) {
 	br = &Boar{
 		cfg:          cfg,
 		pid2ExitCode: utils.NewSyncMap(),
-		serializer:   newSerializer(),
 		watchers:     util.NewWatchers(),
 	}
 
 	br.Host, err = models.LoadHost()
+	if err != nil {
+		return nil, err
+	}
+	br.pool, err = newTaskPool(cfg.MaxConcurrency)
 	if err != nil {
 		return nil, err
 	}
@@ -261,36 +264,33 @@ func (svc *Boar) ctrl(ctx context.Context, id string, op op, fn ctrlFunc, rollba
 
 type doFunc func(context.Context) (any, error)
 
-func (svc *Boar) do(ctx context.Context, id string, op op, fn doFunc, rollback rollbackFunc) (any, error) {
-	t := &task{
-		id:  id,
-		op:  op,
-		do:  fn,
-		ctx: ctx,
-	}
+func (svc *Boar) do(ctx context.Context, id string, op op, fn doFunc, rollback rollbackFunc) (result any, err error) {
+	defer func() {
+		if err != nil {
+			if rollback != nil {
+				rollback()
+			}
+			// return nil, errors.Trace(err)
+		}
+	}()
+
+	t := newTask(id, op, fn)
 
 	dur := configs.Conf.VirtTimeout.Duration()
 	timeout := time.After(dur)
 
-	noti := svc.serializer.Serialize(id, t)
-
-	var result any
-	var err error
+	if err = svc.pool.SubmitTask(ctx, t); err != nil {
+		return
+	}
+	defer svc.pool.doneTask(t)
 
 	select {
-	case <-noti.done:
-		result = noti.result()
-		err = noti.error()
+	case <-t.done:
+		result, err = t.result()
 	case <-ctx.Done():
 		err = ctx.Err()
 	case <-timeout:
 		err = errors.Annotatef(errors.ErrTimeout, "exceed %v", dur)
-	}
-	if err != nil {
-		if rollback != nil {
-			rollback()
-		}
-		return nil, errors.Trace(err)
 	}
 
 	svc.watchers.Watched(virtypes.Event{
@@ -300,7 +300,7 @@ func (svc *Boar) do(ctx context.Context, id string, op op, fn doFunc, rollback r
 		Time:   time.Now().UTC(),
 	})
 
-	return result, nil
+	return
 }
 
 func (svc *Boar) NewWatcher() (*util.Watcher, error) {

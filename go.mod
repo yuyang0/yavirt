@@ -13,6 +13,7 @@ require (
 	github.com/juju/errors v1.0.0
 	github.com/libvirt/libvirt-go v7.4.0+incompatible
 	github.com/mitchellh/mapstructure v1.5.0
+	github.com/panjf2000/ants/v2 v2.7.3
 	github.com/projectcalico/api v0.0.0-20230222223746-44aa60c2201f
 	github.com/projectcalico/calico v1.11.0-cni-plugin.0.20230510161715-15d193738928
 	github.com/projecteru2/core v0.0.0-20230606024007-b4db1600e120
@@ -101,7 +102,6 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/panjf2000/ants/v2 v2.7.3 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/pelletier/go-toml/v2 v2.0.7 // indirect
 	github.com/pkg/errors v0.9.1 // indirect

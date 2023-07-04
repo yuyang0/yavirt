@@ -12,6 +12,7 @@ cni_config_path = "/etc/cni/net.d/yavirt-cni.conf"
 resize_volume_min_ratio = 0.05
 resize_volume_min_size = 10737418240
 
+max_concurrency = 100000     # optional, default 100000 for pool size
 min_cpu = 1
 max_cpu = 64
 min_memory = 1073741824
