@@ -100,7 +100,7 @@ func (m *Metrics) Incr(name string, labels map[string]string) error {
 	case *prometheus.CounterVec:
 		col.With(labels).Inc()
 	default:
-		return errors.Errorf("collector %s is not counter or guage", name)
+		return errors.Errorf("collector %s is not counter or gauge", name)
 	}
 
 	return nil

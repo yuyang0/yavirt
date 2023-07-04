@@ -7,7 +7,6 @@ import (
 
 	"github.com/panjf2000/ants/v2"
 	"github.com/projecteru2/yavirt/internal/metrics"
-	"github.com/projecteru2/yavirt/pkg/errors"
 	"github.com/projecteru2/yavirt/pkg/idgen"
 	"github.com/projecteru2/yavirt/pkg/log"
 )
@@ -58,10 +57,10 @@ func (t *task) String() string {
 	return fmt.Sprintf("%s <%s, %s>", t.id, t.op, t.guestID)
 }
 
-func (t *task) abort() {
-	t.finish()
-	t.err = errors.Trace(errors.ErrSerializedTaskAborted)
-}
+// func (t *task) abort() {
+// 	t.finish()
+// 	t.err = errors.Trace(errors.ErrSerializedTaskAborted)
+// }
 
 // terminate forcibly terminates a task.
 func (t *task) terminate() { //nolint
