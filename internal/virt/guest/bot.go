@@ -102,27 +102,30 @@ func (v *bot) Migrate() error {
 }
 
 func (v *bot) Boot(ctx context.Context) error {
+	log.Infof("Boot(%s): stage1 -> Domain boot...", v.guest.ID)
 	if err := v.dom.Boot(ctx); err != nil {
 		return err
 	}
+
+	log.Infof("Boot(%s): stage2 -> Waiting GA...", v.guest.ID)
 	if err := v.waitGA(ctx); err != nil {
 		return err
 	}
-	log.Debugf("Boot: stage1 -> Setting NICs...")
+	log.Infof("Boot(%s): stage3 -> Setting NICs...", v.guest.ID)
 	if err := v.setupNics(); err != nil {
 		return err
 	}
-	log.Debugf("Boot: stage2 -> Setting Vols...")
 	if configs.Conf.Storage.InitGuestVolume {
+		log.Infof("Boot(%s): stage4 -> Setting Vols...", v.guest.ID)
 		if err := v.setupVols(); err != nil {
 			return err
 		}
 	}
-	log.Debugf("Boot: stage3 -> Executing Batches...")
+	log.Infof("Boot(%s): stage5 -> Executing Batches...", v.guest.ID)
 	if err := v.execBatches(); err != nil {
 		return err
 	}
-	log.Debugf("Boot: stage4 -> Binding extra networks...")
+	log.Infof("Boot(%s): stage6 -> Binding extra networks...", v.guest.ID)
 	return v.BindExtraNetwork()
 }
 
