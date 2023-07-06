@@ -115,11 +115,9 @@ func (v *bot) Boot(ctx context.Context) error {
 	if err := v.setupNics(); err != nil {
 		return err
 	}
-	if configs.Conf.Storage.InitGuestVolume {
-		log.Infof("Boot(%s): stage4 -> Setting Vols...", v.guest.ID)
-		if err := v.setupVols(); err != nil {
-			return err
-		}
+	log.Infof("Boot(%s): stage4 -> Setting Vols...", v.guest.ID)
+	if err := v.setupVols(); err != nil {
+		return err
 	}
 	log.Infof("Boot(%s): stage5 -> Executing Batches...", v.guest.ID)
 	if err := v.execBatches(); err != nil {
@@ -248,14 +246,36 @@ func (v *bot) RestoreSnapshot(volmod volume.Volume, snapID string) error {
 }
 
 // AttachVolume .
-func (v *bot) AttachVolume(volmod volume.Volume, devName string) (func(), error) {
+func (v *bot) AttachVolume(vol volume.Volume, devName string) (rollback func(), err error) {
 	dom, err := v.dom.Lookup()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	defer dom.Free()
 
-	return volume.Attach(volmod, dom, v.ga, devName)
+	rollback, err = volume.Create(vol)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	defer func() {
+		if err != nil {
+			rollback()
+		}
+		rollback = nil
+	}()
+
+	var st libvirt.DomainState
+	buf, err := vol.GenerateXMLWithDevName(devName)
+	if err != nil {
+		return
+	}
+	st, err = dom.AttachVolume(string(buf))
+	if err == nil && st == libvirt.DomainRunning && configs.Conf.Storage.InitGuestVolume {
+		log.Debugf("Mount(%s): start to mount volume(%s)", v.guest.ID, vol.GetMountDir())
+		err = volume.Mount(vol, v.ga, base.GetDevicePathByName(devName))
+	}
+	return
 }
 
 // AmplifyVolume .
@@ -294,6 +314,9 @@ func (v *bot) execBatches() error {
 }
 
 func (v *bot) setupVols() (err error) {
+	if !configs.Conf.Storage.InitGuestVolume {
+		return nil
+	}
 	v.guest.rangeVolumes(func(sn int, vol volume.Volume) bool {
 		if vol.IsSys() {
 			return true

@@ -124,33 +124,7 @@ func cleanObsoleteUserImages(_ *image.UserImage) error {
 	return nil
 }
 
-// Attach .
-// Note: caller should call dom.Free() to release resource
-func Attach(vol Volume, dom libvirt.Domain, ga agent.Interface, devName string) (rollback func(), err error) {
-	if rollback, err = create(vol); err != nil {
-		return
-	}
-
-	defer func() {
-		if err != nil {
-			rollback()
-		}
-		rollback = nil
-	}()
-
-	var st libvirt.DomainState
-	buf, err := vol.GenerateXMLWithDevName(devName)
-	if err != nil {
-		return
-	}
-	if st, err = dom.AttachVolume(string(buf)); err == nil && st == libvirt.DomainRunning {
-		err = Mount(vol, ga, base.GetDevicePathByName(devName))
-	}
-
-	return
-}
-
-func create(vol Volume) (func(), error) {
+func Create(vol Volume) (func(), error) {
 	if err := Alloc(vol, nil); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -284,18 +258,22 @@ func Mount(vol Volume, ga agent.Interface, devPath string) error {
 	var ctx, cancel = context.WithTimeout(context.Background(), configs.Conf.GADiskTimeout.Duration())
 	defer cancel()
 
+	log.Debugf("Mount: format")
 	if err := format(ctx, ga, vol, devPath); err != nil {
 		return errors.Trace(err)
 	}
 
+	log.Debugf("Mount: mount")
 	if err := mount(ctx, ga, vol, devPath); err != nil {
 		return errors.Trace(err)
 	}
 
+	log.Debugf("Mount: save fstab")
 	if err := saveFstab(ctx, ga, vol, devPath); err != nil {
 		return errors.Trace(err)
 	}
 
+	log.Debugf("Mount: amplify if necessary")
 	switch amplified, err := isAmplifying(ctx, ga, vol, devPath); {
 	case err != nil:
 		return errors.Trace(err)
@@ -356,6 +334,9 @@ func format(ctx context.Context, ga agent.Interface, v Volume, devPath string) e
 	return ga.Touch(ctx, formattedFlagPath(v))
 }
 
+// parted -s /dev/vdN mklabel gpt
+// parted -s /dev/vdN mkpart primary 1049K -- -1
+// mkfs -F -t ext4 /dev/vdN
 func fdisk(ctx context.Context, ga agent.Interface, devPath string) error {
 	var cmds = [][]string{
 		{"parted", "-s", devPath, "mklabel", "gpt"},

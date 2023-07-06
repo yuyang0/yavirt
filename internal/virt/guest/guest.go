@@ -142,15 +142,18 @@ func (g *Guest) Resize(cpu int, mem int64, vols []volume.Volume) error {
 	// even those volumes aren't affected.
 	if len(vols) > 0 {
 		// Just amplifies those original volumes.
+		log.Infof("Resize(%s): Try to amplify exist volumes", g.ID)
 		if err := g.amplifyOrigVols(volMap); err != nil {
 			return errors.Trace(err)
 		}
 		// Attaches new extra volumes.
+		log.Infof("Resize(%s): Try to attach new volumes", g.ID)
 		if err := g.attachVols(volMap); err != nil {
 			return errors.Trace(err)
 		}
 	}
 
+	log.Infof("Resize(%s): Resize cpu and memory if necessary", g.ID)
 	if cpu == g.CPU && mem == g.Memory {
 		return nil
 	}
@@ -158,10 +161,10 @@ func (g *Guest) Resize(cpu int, mem int64, vols []volume.Volume) error {
 	return g.resizeSpec(cpu, mem)
 }
 
-func (g *Guest) amplifyOrigVols(vols map[string]volume.Volume) error {
+func (g *Guest) amplifyOrigVols(volMap map[string]volume.Volume) error {
 	var err error
 	g.rangeVolumes(func(sn int, vol volume.Volume) bool {
-		newCapMod, affected := vols[vol.GetMountDir()]
+		newCapMod, affected := volMap[vol.GetMountDir()]
 		if !affected {
 			return true
 		}
@@ -184,8 +187,8 @@ func (g *Guest) amplifyOrigVols(vols map[string]volume.Volume) error {
 	return err
 }
 
-func (g *Guest) attachVols(vols map[string]volume.Volume) error {
-	for _, vol := range vols {
+func (g *Guest) attachVols(volMap map[string]volume.Volume) error {
+	for _, vol := range volMap {
 		if g.Vols.Exists(vol.GetMountDir()) {
 			continue
 		}
