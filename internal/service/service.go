@@ -21,7 +21,7 @@ type Service interface { //nolint:interfacebloat
 	GetGuestUUID(ctx context.Context, id string) (string, error)
 	CreateGuest(ctx context.Context, opts virtypes.GuestCreateOption) (*types.Guest, error)
 	CaptureGuest(ctx context.Context, req types.CaptureGuestReq) (uimg *image.UserImage, err error)
-	ResizeGuest(ctx context.Context, opts *virtypes.GuestResizeOption) (err error)
+	ResizeGuest(ctx context.Context, id string, opts *virtypes.GuestResizeOption) (err error)
 	ControlGuest(ctx context.Context, id, operation string, force bool) (err error)
 	AttachGuest(ctx context.Context, id string, stream io.ReadWriteCloser, flags virtypes.OpenConsoleFlags) (err error)
 	ResizeConsoleWindow(ctx context.Context, id string, height, width uint) (err error)

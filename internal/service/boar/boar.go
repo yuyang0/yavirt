@@ -152,21 +152,21 @@ func (svc *Boar) CaptureGuest(ctx context.Context, req types.CaptureGuestReq) (u
 }
 
 // ResizeGuest re-allocates spec or volumes.
-func (svc *Boar) ResizeGuest(ctx context.Context, opts *virtypes.GuestResizeOption) (err error) {
+func (svc *Boar) ResizeGuest(ctx context.Context, id string, opts *virtypes.GuestResizeOption) (err error) {
 	defer logErr(err)
 
 	vols, err := extractVols(opts.Resources)
 	if err != nil {
 		return err
 	}
-	g, err := svc.loadGuest(ctx, opts.ID)
+	g, err := svc.loadGuest(ctx, id)
 	if err != nil {
 		return err
 	}
 	do := func(ctx context.Context) (any, error) {
 		return nil, g.Resize(opts.CPU, opts.Mem, vols)
 	}
-	_, err = svc.do(ctx, opts.ID, resizeOp, do, nil)
+	_, err = svc.do(ctx, id, resizeOp, do, nil)
 	return
 }
 

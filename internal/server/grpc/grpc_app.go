@@ -205,7 +205,7 @@ func (y *GRPCYavirtd) ResizeGuest(ctx context.Context, opts *pb.ResizeGuestOptio
 	virtCtx := y.service.VirtContext(ctx)
 
 	req := virtypes.ConvertGRPCResizeOptions(opts)
-	err := y.service.ResizeGuest(virtCtx, req)
+	err := y.service.ResizeGuest(virtCtx, virtID(opts.Id), req)
 	if err != nil {
 		msg.Msg = fmt.Sprintf("%s", err)
 	}
@@ -216,9 +216,8 @@ func (y *GRPCYavirtd) ResizeGuest(ctx context.Context, opts *pb.ResizeGuestOptio
 // ControlGuest .
 func (y *GRPCYavirtd) ControlGuest(ctx context.Context, opts *pb.ControlGuestOptions) (_ *pb.ControlGuestMessage, err error) {
 	log.Infof("[grpcserver] control guest: %q", opts)
-	req := types.GuestReq{ID: opts.Id}
 	virtCtx := y.service.VirtContext(ctx)
-	err = y.service.ControlGuest(virtCtx, req.VirtID(), opts.Operation, opts.Force)
+	err = y.service.ControlGuest(virtCtx, virtID(opts.Id), opts.Operation, opts.Force)
 
 	msg := "ok"
 	if err != nil {
@@ -237,13 +236,12 @@ func (y *GRPCYavirtd) AttachGuest(server pb.YavirtdRPC_AttachGuestServer) (err e
 	}
 
 	virtCtx := y.service.VirtContext(server.Context())
-	req := types.GuestReq{ID: opts.Id}
 	serverStream := &ExecuteGuestServerStream{
 		ID:     opts.Id,
 		server: server,
 	}
 	flags := virtypes.OpenConsoleFlags{Force: opts.Force, Safe: opts.Safe, Commands: opts.Commands}
-	return y.service.AttachGuest(virtCtx, req.VirtID(), serverStream, flags)
+	return y.service.AttachGuest(virtCtx, virtID(opts.Id), serverStream, flags)
 }
 
 // ResizeConsoleWindow .
@@ -603,4 +601,9 @@ func (y *GRPCYavirtd) RestoreSnapshot(ctx context.Context, opts *pb.RestoreSnaps
 	}
 
 	return msg, err
+}
+
+func virtID(id string) string {
+	req := types.GuestReq{ID: id}
+	return req.VirtID()
 }
