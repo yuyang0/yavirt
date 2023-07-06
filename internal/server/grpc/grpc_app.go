@@ -11,6 +11,7 @@ import (
 	"github.com/projecteru2/libyavirt/types"
 
 	"github.com/projecteru2/yavirt/internal/service"
+	"github.com/projecteru2/yavirt/internal/util"
 	virtypes "github.com/projecteru2/yavirt/internal/virt/types"
 	"github.com/projecteru2/yavirt/pkg/errors"
 	"github.com/projecteru2/yavirt/pkg/log"
@@ -205,7 +206,7 @@ func (y *GRPCYavirtd) ResizeGuest(ctx context.Context, opts *pb.ResizeGuestOptio
 	virtCtx := y.service.VirtContext(ctx)
 
 	req := virtypes.ConvertGRPCResizeOptions(opts)
-	err := y.service.ResizeGuest(virtCtx, virtID(opts.Id), req)
+	err := y.service.ResizeGuest(virtCtx, util.VirtID(opts.Id), req)
 	if err != nil {
 		msg.Msg = fmt.Sprintf("%s", err)
 	}
@@ -217,7 +218,7 @@ func (y *GRPCYavirtd) ResizeGuest(ctx context.Context, opts *pb.ResizeGuestOptio
 func (y *GRPCYavirtd) ControlGuest(ctx context.Context, opts *pb.ControlGuestOptions) (_ *pb.ControlGuestMessage, err error) {
 	log.Infof("[grpcserver] control guest: %q", opts)
 	virtCtx := y.service.VirtContext(ctx)
-	err = y.service.ControlGuest(virtCtx, virtID(opts.Id), opts.Operation, opts.Force)
+	err = y.service.ControlGuest(virtCtx, util.VirtID(opts.Id), opts.Operation, opts.Force)
 
 	msg := "ok"
 	if err != nil {
@@ -241,7 +242,7 @@ func (y *GRPCYavirtd) AttachGuest(server pb.YavirtdRPC_AttachGuestServer) (err e
 		server: server,
 	}
 	flags := virtypes.OpenConsoleFlags{Force: opts.Force, Safe: opts.Safe, Commands: opts.Commands}
-	return y.service.AttachGuest(virtCtx, virtID(opts.Id), serverStream, flags)
+	return y.service.AttachGuest(virtCtx, util.VirtID(opts.Id), serverStream, flags)
 }
 
 // ResizeConsoleWindow .
@@ -601,9 +602,4 @@ func (y *GRPCYavirtd) RestoreSnapshot(ctx context.Context, opts *pb.RestoreSnaps
 	}
 
 	return msg, err
-}
-
-func virtID(id string) string {
-	req := types.GuestReq{ID: id}
-	return req.VirtID()
 }

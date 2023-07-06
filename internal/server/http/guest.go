@@ -7,6 +7,7 @@ import (
 
 	"github.com/projecteru2/libyavirt/types"
 
+	"github.com/projecteru2/yavirt/internal/util"
 	virtypes "github.com/projecteru2/yavirt/internal/virt/types"
 )
 
@@ -40,7 +41,7 @@ func (s *apiServer) CaptureGuest(c *gin.Context) {
 func (s *apiServer) ResizeGuest(c *gin.Context) {
 	var req virtypes.GuestResizeOption
 	s.dispatchMsg(c, &req, func(ctx context.Context) error {
-		return s.service.ResizeGuest(ctx, &req)
+		return s.service.ResizeGuest(ctx, util.VirtID(req.ID), &req)
 	})
 }
 
