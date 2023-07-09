@@ -316,7 +316,7 @@ func saveFstab(ctx context.Context, ga agent.Interface, v Volume, devPath string
 	var line = fmt.Sprintf("\nUUID=%s %s %s defaults %d %d",
 		blkid, v.GetMountDir(), fs, backupDump, fsckPass)
 
-	return ga.AppendLine(types.FstabFile, []byte(line))
+	return ga.AppendLine(ctx, types.FstabFile, []byte(line))
 }
 
 func format(ctx context.Context, ga agent.Interface, v Volume, devPath string) error {

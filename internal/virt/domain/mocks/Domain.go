@@ -5,7 +5,7 @@ package mocks
 import (
 	context "context"
 
-	libvirt "github.com/libvirt/libvirt-go"
+	libvirt "libvirt.org/go/libvirt"
 
 	mock "github.com/stretchr/testify/mock"
 

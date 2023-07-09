@@ -112,20 +112,20 @@ func (n *Nic) AddIP(ctx context.Context, dev string) error {
 	return n.addIP(ctx, n.CIDR(), dev)
 }
 
-func writeFileToGuest(_ context.Context, ga *agent.Agent, buf []byte, fname string) (err error) {
+func writeFileToGuest(ctx context.Context, ga *agent.Agent, buf []byte, fname string) (err error) {
 	var fp agent.File
-	fp, err = agent.OpenFile(ga, fname, "w")
+	fp, err = agent.OpenFile(ctx, ga, fname, "w")
 	if err != nil {
 		return err
 	}
 
 	defer func() {
 		if err == nil {
-			err = fp.Flush()
+			err = fp.Flush(ctx)
 		}
 	}()
 
-	_, err = fp.Write(buf)
+	_, err = fp.Write(ctx, buf)
 
 	return
 }

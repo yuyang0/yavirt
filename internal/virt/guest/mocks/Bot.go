@@ -9,7 +9,7 @@ import (
 
 	image "github.com/projecteru2/yavirt/internal/image"
 
-	libvirt "github.com/libvirt/libvirt-go"
+	libvirt "libvirt.org/go/libvirt"
 
 	mock "github.com/stretchr/testify/mock"
 
@@ -367,25 +367,25 @@ func (_m *Bot) OpenConsole(_a0 context.Context, _a1 types.OpenConsoleFlags) (typ
 	return r0, r1
 }
 
-// OpenFile provides a mock function with given fields: path, mode
-func (_m *Bot) OpenFile(path string, mode string) (agent.File, error) {
-	ret := _m.Called(path, mode)
+// OpenFile provides a mock function with given fields: ctx, path, mode
+func (_m *Bot) OpenFile(ctx context.Context, path string, mode string) (agent.File, error) {
+	ret := _m.Called(ctx, path, mode)
 
 	var r0 agent.File
 	var r1 error
-	if rf, ok := ret.Get(0).(func(string, string) (agent.File, error)); ok {
-		return rf(path, mode)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (agent.File, error)); ok {
+		return rf(ctx, path, mode)
 	}
-	if rf, ok := ret.Get(0).(func(string, string) agent.File); ok {
-		r0 = rf(path, mode)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) agent.File); ok {
+		r0 = rf(ctx, path, mode)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(agent.File)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(string, string) error); ok {
-		r1 = rf(path, mode)
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, path, mode)
 	} else {
 		r1 = ret.Error(1)
 	}

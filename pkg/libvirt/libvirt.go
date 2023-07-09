@@ -1,7 +1,7 @@
 package libvirt
 
 import (
-	libvirtgo "github.com/libvirt/libvirt-go"
+	libvirtgo "libvirt.org/go/libvirt"
 
 	"github.com/projecteru2/yavirt/pkg/errors"
 )

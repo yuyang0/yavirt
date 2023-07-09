@@ -22,15 +22,16 @@ func TestCopyFileRunning(t *testing.T) {
 	ctx, cancel := meta.Context(context.Background())
 	defer cancel()
 
-	f.On("Write", mock.Anything).Return(1, nil)
-	f.On("Close").Return(nil).Once()
+	f.On("Write", mock.Anything, mock.Anything).Return(1, nil)
+	f.On("Close", mock.Anything).Return(nil).Once()
 	bot.On("RemoveAll", mock.Anything, mock.Anything).Return(nil).Once()
 	bot.On("MakeDirectory", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
-	bot.On("OpenFile", mock.Anything, mock.Anything).Return(f, nil).Once()
+	bot.On("OpenFile", mock.Anything, mock.Anything, mock.Anything).Return(f, nil).Once()
 	content := make(chan []byte, 10)
 	content <- []byte{'a', 'b', 'c'}
 	close(content)
-	assert.NilErr(t, guest.copyToGuestRunning(ctx, "/root/test", content, bot, true))
+	err := guest.copyToGuestRunning(ctx, "/root/test", content, bot, true)
+	assert.NilErr(t, err)
 
 	bot.On("IsFolder", mock.Anything, mock.Anything).Return(true, nil).Once()
 	assert.Equal(t, errors.ErrFolderExists, guest.copyToGuestRunning(ctx, "/root/test", content, bot, false))

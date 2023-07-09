@@ -1,6 +1,6 @@
 package libvirt
 
-import libvirtgo "github.com/libvirt/libvirt-go"
+import libvirtgo "libvirt.org/go/libvirt"
 
 // DomainState .
 type DomainState = libvirtgo.DomainState

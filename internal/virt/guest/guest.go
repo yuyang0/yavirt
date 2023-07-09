@@ -733,16 +733,16 @@ func (g *Guest) ResizeConsoleWindow(ctx context.Context, height, width uint) (er
 }
 
 // Cat .
-func (g *Guest) Cat(ctx context.Context, path string, dest io.WriteCloser) error {
+func (g *Guest) Cat(ctx context.Context, path string, dest io.Writer) error {
 	return g.botOperate(func(bot Bot) error {
-		src, err := bot.OpenFile(path, "r")
+		src, err := bot.OpenFile(ctx, path, "r")
 		if err != nil {
 			return errors.Trace(err)
 		}
 
-		defer src.Close()
+		defer src.Close(ctx)
 
-		_, err = utils.CopyIO(ctx, dest, src)
+		_, err = src.CopyTo(ctx, dest)
 
 		return err
 	})

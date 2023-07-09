@@ -151,7 +151,7 @@ func (a *Agent) exec(ctx context.Context, prog string, args []string, stdio bool
 	var st types.ExecStatus
 
 	var data []byte
-	data, st.Err = a.qmp.Exec(prog, args, stdio)
+	data, st.Err = a.qmp.Exec(ctx, prog, args, stdio)
 	if st.Err != nil {
 		done <- st
 		return done
@@ -184,7 +184,7 @@ func (a *Agent) exec(ctx context.Context, prog string, args []string, stdio bool
 				return
 
 			case <-next.C:
-				if st = a.execStatus(ret.Pid, stdio); st.Err != nil || st.Exited {
+				if st = a.execStatus(ctx, ret.Pid, stdio); st.Err != nil || st.Exited {
 					return
 				}
 			}
@@ -194,8 +194,8 @@ func (a *Agent) exec(ctx context.Context, prog string, args []string, stdio bool
 	return done
 }
 
-func (a *Agent) execStatus(pid int, _ bool) (st types.ExecStatus) {
-	var data, err = a.qmp.ExecStatus(pid)
+func (a *Agent) execStatus(ctx context.Context, pid int, _ bool) (st types.ExecStatus) {
+	var data, err = a.qmp.ExecStatus(ctx, pid)
 	if err != nil {
 		st.Err = errors.Trace(err)
 		return

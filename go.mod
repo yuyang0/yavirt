@@ -11,7 +11,6 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/jaypipes/ghw v0.10.0
 	github.com/juju/errors v1.0.0
-	github.com/libvirt/libvirt-go v7.4.0+incompatible
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/panjf2000/ants/v2 v2.7.3
 	github.com/projectcalico/api v0.0.0-20230222223746-44aa60c2201f
@@ -34,6 +33,7 @@ require (
 	golang.org/x/sys v0.8.0
 	google.golang.org/grpc v1.54.1
 	k8s.io/apimachinery v0.26.3
+	libvirt.org/go/libvirt v1.9004.0
 )
 
 require (

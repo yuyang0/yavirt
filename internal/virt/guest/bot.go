@@ -43,7 +43,7 @@ type Bot interface { //nolint
 	AmplifyVolume(vol volume.Volume, cap int64, devPath string) error
 	AttachVolume(volmod volume.Volume, devName string) (rollback func(), err error)
 	BindExtraNetwork() error
-	OpenFile(path, mode string) (agent.File, error)
+	OpenFile(ctx context.Context, path, mode string) (agent.File, error)
 	MakeDirectory(ctx context.Context, path string, parent bool) error
 	Trylock() error
 	Unlock()
@@ -75,7 +75,8 @@ func newVirtGuest(guest *Guest) (Bot, error) {
 	}
 	vg.dom = domain.New(vg.guest.Guest, vg.virt)
 	vg.flock = vg.newFlock()
-	vg.ga = agent.New(vg.guest.SocketFilepath())
+
+	vg.ga = agent.New(guest.ID, virt)
 
 	return vg, nil
 }
@@ -366,7 +367,7 @@ func (v *bot) reloadGA() error {
 		return errors.Trace(err)
 	}
 
-	v.ga = agent.New(v.guest.SocketFilepath())
+	v.ga = agent.New(v.guest.ID, v.virt)
 
 	return nil
 }
@@ -453,8 +454,8 @@ func (v *bot) Resize(cpu int, mem int64) error {
 }
 
 // OpenFile .
-func (v *bot) OpenFile(path string, mode string) (agent.File, error) {
-	return agent.OpenFile(v.ga, path, mode)
+func (v *bot) OpenFile(ctx context.Context, path string, mode string) (agent.File, error) {
+	return agent.OpenFile(ctx, v.ga, path, mode)
 }
 
 // MakeDirectory .

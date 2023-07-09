@@ -2,7 +2,6 @@ package guest
 
 import (
 	"context"
-	"io"
 	"os"
 	"testing"
 
@@ -18,8 +17,7 @@ func TestLogRunning(t *testing.T) {
 	defer bot.AssertExpectations(t)
 
 	f := &mocks.File{}
-	f.On("Read", mock.Anything).Return(0, io.EOF)
-	f.On("Close").Return(nil)
+	f.On("Close", mock.Anything).Return(nil)
 	defer f.AssertExpectations(t)
 
 	ctx, cancel := meta.Context(context.Background())
@@ -27,17 +25,20 @@ func TestLogRunning(t *testing.T) {
 
 	content := []byte{'a', 'b', 'c'}
 
-	bot.On("OpenFile", mock.Anything, mock.Anything).Return(f, nil).Once()
+	f.On("CopyTo", mock.Anything, mock.Anything).Return(0, nil).Once()
+	bot.On("OpenFile", mock.Anything, mock.Anything, mock.Anything).Return(f, nil).Once()
 	tmp, err := os.OpenFile("/dev/null", os.O_WRONLY, 0)
 	assert.NilErr(t, err)
-	assert.NilErr(t, guest.logRunning(ctx, bot, -1, "/tmp/log", tmp))
+	err = guest.logRunning(ctx, bot, -1, "/tmp/log", tmp)
+	assert.NilErr(t, err)
 	tmp.Close()
 
-	bot.On("OpenFile", mock.Anything, mock.Anything).Return(f, nil).Once()
-	f.On("Tail", mock.Anything).Return(content, nil).Once()
+	bot.On("OpenFile", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(f, nil).Once()
+	f.On("Tail", mock.Anything, mock.Anything).Return(content, nil).Once()
 	tmp, err = os.OpenFile("/dev/null", os.O_WRONLY, 0)
 	assert.NilErr(t, err)
-	assert.NilErr(t, guest.logRunning(ctx, bot, 1, "/tmp/log", tmp))
+	err = guest.logRunning(ctx, bot, 1, "/tmp/log", tmp)
+	assert.NilErr(t, err)
 	tmp.Close()
 }
 

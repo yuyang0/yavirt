@@ -3,7 +3,10 @@
 package mocks
 
 import (
-	libvirt_go "github.com/libvirt/libvirt-go"
+	context "context"
+
+	golibvirt "libvirt.org/go/libvirt"
+
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -27,18 +30,18 @@ func (_m *Domain) AmplifyVolume(filepath string, cap uint64) error {
 }
 
 // AttachVolume provides a mock function with given fields: xml
-func (_m *Domain) AttachVolume(xml string) (libvirt_go.DomainState, error) {
+func (_m *Domain) AttachVolume(xml string) (golibvirt.DomainState, error) {
 	ret := _m.Called(xml)
 
-	var r0 libvirt_go.DomainState
+	var r0 golibvirt.DomainState
 	var r1 error
-	if rf, ok := ret.Get(0).(func(string) (libvirt_go.DomainState, error)); ok {
+	if rf, ok := ret.Get(0).(func(string) (golibvirt.DomainState, error)); ok {
 		return rf(xml)
 	}
-	if rf, ok := ret.Get(0).(func(string) libvirt_go.DomainState); ok {
+	if rf, ok := ret.Get(0).(func(string) golibvirt.DomainState); ok {
 		r0 = rf(xml)
 	} else {
-		r0 = ret.Get(0).(libvirt_go.DomainState)
+		r0 = ret.Get(0).(golibvirt.DomainState)
 	}
 
 	if rf, ok := ret.Get(1).(func(string) error); ok {
@@ -79,11 +82,11 @@ func (_m *Domain) Destroy() error {
 }
 
 // DestroyFlags provides a mock function with given fields: flags
-func (_m *Domain) DestroyFlags(flags libvirt_go.DomainDestroyFlags) error {
+func (_m *Domain) DestroyFlags(flags golibvirt.DomainDestroyFlags) error {
 	ret := _m.Called(flags)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(libvirt_go.DomainDestroyFlags) error); ok {
+	if rf, ok := ret.Get(0).(func(golibvirt.DomainDestroyFlags) error); ok {
 		r0 = rf(flags)
 	} else {
 		r0 = ret.Error(0)
@@ -98,19 +101,19 @@ func (_m *Domain) Free() {
 }
 
 // GetInfo provides a mock function with given fields:
-func (_m *Domain) GetInfo() (*libvirt_go.DomainInfo, error) {
+func (_m *Domain) GetInfo() (*golibvirt.DomainInfo, error) {
 	ret := _m.Called()
 
-	var r0 *libvirt_go.DomainInfo
+	var r0 *golibvirt.DomainInfo
 	var r1 error
-	if rf, ok := ret.Get(0).(func() (*libvirt_go.DomainInfo, error)); ok {
+	if rf, ok := ret.Get(0).(func() (*golibvirt.DomainInfo, error)); ok {
 		return rf()
 	}
-	if rf, ok := ret.Get(0).(func() *libvirt_go.DomainInfo); ok {
+	if rf, ok := ret.Get(0).(func() *golibvirt.DomainInfo); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*libvirt_go.DomainInfo)
+			r0 = ret.Get(0).(*golibvirt.DomainInfo)
 		}
 	}
 
@@ -148,18 +151,18 @@ func (_m *Domain) GetName() (string, error) {
 }
 
 // GetState provides a mock function with given fields:
-func (_m *Domain) GetState() (libvirt_go.DomainState, error) {
+func (_m *Domain) GetState() (golibvirt.DomainState, error) {
 	ret := _m.Called()
 
-	var r0 libvirt_go.DomainState
+	var r0 golibvirt.DomainState
 	var r1 error
-	if rf, ok := ret.Get(0).(func() (libvirt_go.DomainState, error)); ok {
+	if rf, ok := ret.Get(0).(func() (golibvirt.DomainState, error)); ok {
 		return rf()
 	}
-	if rf, ok := ret.Get(0).(func() libvirt_go.DomainState); ok {
+	if rf, ok := ret.Get(0).(func() golibvirt.DomainState); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(libvirt_go.DomainState)
+		r0 = ret.Get(0).(golibvirt.DomainState)
 	}
 
 	if rf, ok := ret.Get(1).(func() error); ok {
@@ -196,22 +199,46 @@ func (_m *Domain) GetUUIDString() (string, error) {
 }
 
 // GetXMLDesc provides a mock function with given fields: flags
-func (_m *Domain) GetXMLDesc(flags libvirt_go.DomainXMLFlags) (string, error) {
+func (_m *Domain) GetXMLDesc(flags golibvirt.DomainXMLFlags) (string, error) {
 	ret := _m.Called(flags)
 
 	var r0 string
 	var r1 error
-	if rf, ok := ret.Get(0).(func(libvirt_go.DomainXMLFlags) (string, error)); ok {
+	if rf, ok := ret.Get(0).(func(golibvirt.DomainXMLFlags) (string, error)); ok {
 		return rf(flags)
 	}
-	if rf, ok := ret.Get(0).(func(libvirt_go.DomainXMLFlags) string); ok {
+	if rf, ok := ret.Get(0).(func(golibvirt.DomainXMLFlags) string); ok {
 		r0 = rf(flags)
 	} else {
 		r0 = ret.Get(0).(string)
 	}
 
-	if rf, ok := ret.Get(1).(func(libvirt_go.DomainXMLFlags) error); ok {
+	if rf, ok := ret.Get(1).(func(golibvirt.DomainXMLFlags) error); ok {
 		r1 = rf(flags)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// QemuAgentCommand provides a mock function with given fields: ctx, cmd, flags
+func (_m *Domain) QemuAgentCommand(ctx context.Context, cmd string, flags uint32) (string, error) {
+	ret := _m.Called(ctx, cmd, flags)
+
+	var r0 string
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, uint32) (string, error)); ok {
+		return rf(ctx, cmd, flags)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, uint32) string); ok {
+		r0 = rf(ctx, cmd, flags)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, uint32) error); ok {
+		r1 = rf(ctx, cmd, flags)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -234,11 +261,11 @@ func (_m *Domain) Resume() error {
 }
 
 // SetMemoryFlags provides a mock function with given fields: memory, flags
-func (_m *Domain) SetMemoryFlags(memory uint64, flags libvirt_go.DomainMemoryModFlags) error {
+func (_m *Domain) SetMemoryFlags(memory uint64, flags golibvirt.DomainMemoryModFlags) error {
 	ret := _m.Called(memory, flags)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(uint64, libvirt_go.DomainMemoryModFlags) error); ok {
+	if rf, ok := ret.Get(0).(func(uint64, golibvirt.DomainMemoryModFlags) error); ok {
 		r0 = rf(memory, flags)
 	} else {
 		r0 = ret.Error(0)
@@ -248,11 +275,11 @@ func (_m *Domain) SetMemoryFlags(memory uint64, flags libvirt_go.DomainMemoryMod
 }
 
 // SetVcpusFlags provides a mock function with given fields: vcpu, flags
-func (_m *Domain) SetVcpusFlags(vcpu uint, flags libvirt_go.DomainVcpuFlags) error {
+func (_m *Domain) SetVcpusFlags(vcpu uint, flags golibvirt.DomainVcpuFlags) error {
 	ret := _m.Called(vcpu, flags)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(uint, libvirt_go.DomainVcpuFlags) error); ok {
+	if rf, ok := ret.Get(0).(func(uint, golibvirt.DomainVcpuFlags) error); ok {
 		r0 = rf(vcpu, flags)
 	} else {
 		r0 = ret.Error(0)
@@ -262,11 +289,11 @@ func (_m *Domain) SetVcpusFlags(vcpu uint, flags libvirt_go.DomainVcpuFlags) err
 }
 
 // ShutdownFlags provides a mock function with given fields: flags
-func (_m *Domain) ShutdownFlags(flags libvirt_go.DomainShutdownFlags) error {
+func (_m *Domain) ShutdownFlags(flags golibvirt.DomainShutdownFlags) error {
 	ret := _m.Called(flags)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(libvirt_go.DomainShutdownFlags) error); ok {
+	if rf, ok := ret.Get(0).(func(golibvirt.DomainShutdownFlags) error); ok {
 		r0 = rf(flags)
 	} else {
 		r0 = ret.Error(0)
@@ -290,11 +317,11 @@ func (_m *Domain) Suspend() error {
 }
 
 // UndefineFlags provides a mock function with given fields: flags
-func (_m *Domain) UndefineFlags(flags libvirt_go.DomainUndefineFlagsValues) error {
+func (_m *Domain) UndefineFlags(flags golibvirt.DomainUndefineFlagsValues) error {
 	ret := _m.Called(flags)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(libvirt_go.DomainUndefineFlagsValues) error); ok {
+	if rf, ok := ret.Get(0).(func(golibvirt.DomainUndefineFlagsValues) error); ok {
 		r0 = rf(flags)
 	} else {
 		r0 = ret.Error(0)

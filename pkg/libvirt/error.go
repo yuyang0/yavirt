@@ -1,6 +1,6 @@
 package libvirt
 
-import libvirtgo "github.com/libvirt/libvirt-go"
+import libvirtgo "libvirt.org/go/libvirt"
 
 // IsErrNoDomain is the err indicating not exists.
 func IsErrNoDomain(err error) bool {

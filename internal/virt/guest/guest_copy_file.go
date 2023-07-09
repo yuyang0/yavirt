@@ -26,18 +26,18 @@ func (g *Guest) copyToGuestRunning(ctx context.Context, dest string, content cha
 		return err
 	}
 
-	src, err := bot.OpenFile(dest, "w")
+	src, err := bot.OpenFile(ctx, dest, "w")
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer src.Close()
+	defer src.Close(ctx)
 
 	for {
 		buffer, ok := <-content
 		if !ok {
 			return nil
 		}
-		if _, err = src.Write(buffer); err != nil {
+		if _, err = src.Write(ctx, buffer); err != nil {
 			return errors.Trace(err)
 		}
 	}

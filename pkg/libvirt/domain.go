@@ -1,7 +1,10 @@
 package libvirt
 
 import (
-	libvirtgo "github.com/libvirt/libvirt-go"
+	"context"
+	"time"
+
+	libvirtgo "libvirt.org/go/libvirt"
 
 	"github.com/projecteru2/yavirt/pkg/errors"
 	"github.com/projecteru2/yavirt/pkg/log"
@@ -29,6 +32,7 @@ type Domain interface { //nolint
 	GetUUIDString() (string, error)
 	GetXMLDesc(flags DomainXMLFlags) (string, error)
 	GetName() (string, error)
+	QemuAgentCommand(ctx context.Context, cmd string, flags uint32) (string, error)
 }
 
 // Domainee is a implement of Domain.
@@ -48,6 +52,15 @@ func (d *Domainee) Free() {
 	if err := d.Domain.Free(); err != nil {
 		log.ErrorStack(err)
 	}
+}
+
+func (d *Domainee) QemuAgentCommand(ctx context.Context, cmd string, flags uint32) (string, error) {
+	timeout := libvirtgo.DOMAIN_QEMU_AGENT_COMMAND_DEFAULT
+	if deadline, ok := ctx.Deadline(); ok {
+		remain := time.Until(deadline)
+		timeout = libvirtgo.DomainQemuAgentCommandTimeout(remain.Seconds())
+	}
+	return d.Domain.QemuAgentCommand(cmd, timeout, flags)
 }
 
 // AttachVolume .
