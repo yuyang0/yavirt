@@ -12,6 +12,8 @@ import (
 	gputypes "github.com/yuyang0/resource-gpu/gpu/types"
 )
 
+var execCommand = exec.Command
+
 type Class string
 
 const (
@@ -132,7 +134,7 @@ func FetchGPUInfo() (*gputypes.NodeResource, error) {
 		return nil, err
 	}
 
-	cmdOut, err := exec.Command("lshw", "-quiet", "-json", "-C", "display").Output()
+	cmdOut, err := execCommand("lshw", "-quiet", "-json", "-C", "display").Output()
 	if err != nil {
 		return nil, err
 	}
