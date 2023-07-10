@@ -2,6 +2,7 @@ package hardware
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -122,38 +123,49 @@ func FetchGPUInfo() (*gputypes.NodeResource, error) {
 	hInfo.Lock()
 	defer hInfo.Unlock()
 
-	if hInfo.gpus == nil {
-		pci, err := ghw.PCI()
-		if err != nil {
-			return nil, err
-		}
-
-		cmdOut, err := exec.Command("lshw", "-quiet", "-json", "-C", "display").Output()
-		if err != nil {
-			return nil, err
-		}
-		params := []map[string]any{}
-		if err = json.Unmarshal(cmdOut, &params); err != nil {
-			return nil, err
-		}
-		ans := gputypes.NewNodeResource(nil)
-		for _, param := range params {
-			businfo := param["businfo"].(string) //nolint
-			addr := strings.Split(businfo, "@")[1]
-			deviceInfo := pci.GetDevice(addr)
-			var numa string
-			if deviceInfo != nil && deviceInfo.Node != nil {
-				numa = fmt.Sprintf("%d", deviceInfo.Node.ID)
-			}
-			info := gputypes.GPUInfo{
-				Address: strings.Split(businfo, "@")[1],
-				Product: param["product"].(string),
-				Vendor:  param["vendor"].(string),
-				NumaID:  numa,
-			}
-			ans.GPUMap[addr] = info
-		}
-		hInfo.gpus = ans
+	if hInfo.gpus != nil {
+		return hInfo.gpus, nil
 	}
+
+	pci, err := ghw.PCI()
+	if err != nil {
+		return nil, err
+	}
+
+	cmdOut, err := exec.Command("lshw", "-quiet", "-json", "-C", "display").Output()
+	if err != nil {
+		return nil, err
+	}
+	params := []map[string]any{}
+	if err = json.Unmarshal(cmdOut, &params); err != nil {
+		return nil, err
+	}
+	ans := gputypes.NewNodeResource(nil)
+	for _, param := range params {
+		var addr string
+		if businfoRaw, ok := param["businfo"]; ok && businfoRaw != nil {
+			addr = strings.Split(businfoRaw.(string), "@")[1]
+		} else if handleRaw, ok := param["handle"]; ok && handleRaw != nil {
+			handle := handleRaw.(string) //nolint
+			idx := strings.Index(handle, ":")
+			addr = handle[idx+1:]
+		}
+		if addr == "" {
+			return nil, errors.New("Can't fetch PCI address")
+		}
+		deviceInfo := pci.GetDevice(addr)
+		var numa string
+		if deviceInfo != nil && deviceInfo.Node != nil {
+			numa = fmt.Sprintf("%d", deviceInfo.Node.ID)
+		}
+		info := gputypes.GPUInfo{
+			Address: addr,
+			Product: param["product"].(string),
+			Vendor:  param["vendor"].(string),
+			NumaID:  numa,
+		}
+		ans.GPUMap[addr] = info
+	}
+	hInfo.gpus = ans
 	return hInfo.gpus, nil
 }
