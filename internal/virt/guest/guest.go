@@ -1,6 +1,7 @@
 package guest
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -660,7 +661,10 @@ func (g *Guest) AttachConsole(ctx context.Context, serverStream io.ReadWriteClos
 				close(done2)
 				log.Infof("[guest.AttachConsole] copy server stream goroutine exited")
 			}()
-			console.From(ctx, serverStream) //nolint
+
+			initCmds := append([]byte(strings.Join(flags.Commands, " ")), byte(13))
+			reader := io.MultiReader(bytes.NewBuffer(initCmds), serverStream)
+			console.From(ctx, reader) //nolint
 		}()
 
 		// either copy goroutine exit

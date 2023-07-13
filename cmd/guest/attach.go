@@ -54,10 +54,11 @@ func (b *buffer) UserWrite(bs []byte) error {
 
 func attachGuest(c *cli.Context, runtime run.Runtime) error { //nolint
 	id := c.Args().First()
+	cmds := c.Args().Tail()
 	timeout := c.Int("timeout")
 	log.Debugf("attaching guest %s timeout %d", id, timeout)
 
-	flags := virtypes.OpenConsoleFlags{}
+	flags := virtypes.NewOpenConsoleFlags(false, true, cmds)
 	stream := &buffer{
 		fromQ: utils.NewBytesQueue(),
 		to:    make(chan []byte, 10),
@@ -88,11 +89,11 @@ func attachGuest(c *cli.Context, runtime run.Runtime) error { //nolint
 
 	log.Debugf("start terminal...")
 
-	oldState, err := term.MakeRaw(0)
+	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
 	if err != nil {
 		panic(err)
 	}
-	defer term.Restore(0, oldState) //nolint
+	defer term.Restore(int(os.Stdin.Fd()), oldState) //nolint
 
 	done1, done2 := make(chan struct{}), make(chan struct{})
 	go func() {
