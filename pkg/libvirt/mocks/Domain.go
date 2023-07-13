@@ -7,6 +7,8 @@ import (
 
 	golibvirt "libvirt.org/go/libvirt"
 
+	libvirt "github.com/projecteru2/yavirt/pkg/libvirt"
+
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -215,6 +217,32 @@ func (_m *Domain) GetXMLDesc(flags golibvirt.DomainXMLFlags) (string, error) {
 
 	if rf, ok := ret.Get(1).(func(golibvirt.DomainXMLFlags) error); ok {
 		r1 = rf(flags)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// OpenConsole provides a mock function with given fields: devname, force, safe
+func (_m *Domain) OpenConsole(devname string, force bool, safe bool) (*libvirt.Console, error) {
+	ret := _m.Called(devname, force, safe)
+
+	var r0 *libvirt.Console
+	var r1 error
+	if rf, ok := ret.Get(0).(func(string, bool, bool) (*libvirt.Console, error)); ok {
+		return rf(devname, force, safe)
+	}
+	if rf, ok := ret.Get(0).(func(string, bool, bool) *libvirt.Console); ok {
+		r0 = rf(devname, force, safe)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*libvirt.Console)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(string, bool, bool) error); ok {
+		r1 = rf(devname, force, safe)
 	} else {
 		r1 = ret.Error(1)
 	}

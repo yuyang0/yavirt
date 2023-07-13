@@ -13,6 +13,8 @@ import (
 
 	mock "github.com/stretchr/testify/mock"
 
+	pkglibvirt "github.com/projecteru2/yavirt/pkg/libvirt"
+
 	types "github.com/projecteru2/yavirt/internal/virt/types"
 
 	volume "github.com/projecteru2/yavirt/internal/volume"
@@ -342,19 +344,19 @@ func (_m *Bot) Migrate() error {
 }
 
 // OpenConsole provides a mock function with given fields: _a0, _a1
-func (_m *Bot) OpenConsole(_a0 context.Context, _a1 types.OpenConsoleFlags) (types.Console, error) {
+func (_m *Bot) OpenConsole(_a0 context.Context, _a1 types.OpenConsoleFlags) (*pkglibvirt.Console, error) {
 	ret := _m.Called(_a0, _a1)
 
-	var r0 types.Console
+	var r0 *pkglibvirt.Console
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, types.OpenConsoleFlags) (types.Console, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, types.OpenConsoleFlags) (*pkglibvirt.Console, error)); ok {
 		return rf(_a0, _a1)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, types.OpenConsoleFlags) types.Console); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, types.OpenConsoleFlags) *pkglibvirt.Console); ok {
 		r0 = rf(_a0, _a1)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(types.Console)
+			r0 = ret.Get(0).(*pkglibvirt.Console)
 		}
 	}
 

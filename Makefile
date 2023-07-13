@@ -29,7 +29,7 @@ setup:
 	$(ENV) go install github.com/vektra/mockery/v2@latest
 
 lint: format
-	golangci-lint run --skip-dirs-use-default --skip-dirs=thirdparty
+	golangci-lint run --skip-dirs-use-default --skip-dirs=thirdparty --skip-dirs=tmp
 
 format: vet
 	gofmt -s -w $$(find . -iname '*.go' | grep -v -P '\./third_party|\./vendor/')

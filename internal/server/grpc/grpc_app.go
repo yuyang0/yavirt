@@ -230,18 +230,18 @@ func (y *GRPCYavirtd) ControlGuest(ctx context.Context, opts *pb.ControlGuestOpt
 // AttachGuest .
 func (y *GRPCYavirtd) AttachGuest(server pb.YavirtdRPC_AttachGuestServer) (err error) {
 	defer log.Infof("[grpcserver] attach guest complete")
-	log.Infof("[grpcserver] attach guest start")
 	opts, err := server.Recv()
 	if err != nil {
 		return
 	}
+	log.Infof("[grpcserver] attach guest start: %v", opts)
 
 	virtCtx := y.service.VirtContext(server.Context())
 	serverStream := &ExecuteGuestServerStream{
 		ID:     opts.Id,
 		server: server,
 	}
-	flags := virtypes.OpenConsoleFlags{Force: opts.Force, Safe: opts.Safe, Commands: opts.Commands}
+	flags := virtypes.NewOpenConsoleFlags(opts.Force, opts.Safe, opts.Commands)
 	return y.service.AttachGuest(virtCtx, util.VirtID(opts.Id), serverStream, flags)
 }
 

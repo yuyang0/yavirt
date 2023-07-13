@@ -18,7 +18,7 @@ func Command() *cli.Command {
 			{
 				Name:   "list",
 				Flags:  listFlags(),
-				Action: run.Run(list),
+				Action: run.Run(listCmd),
 			},
 			{
 				Name:   "create",
@@ -46,6 +46,11 @@ func Command() *cli.Command {
 				Name:   "destroy",
 				Flags:  destroyFlags(),
 				Action: run.Run(destroy),
+			},
+			{
+				Name:   "exec",
+				Flags:  execFlags(),
+				Action: run.Run(exec),
 			},
 			{
 				Name:   "resize",

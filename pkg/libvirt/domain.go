@@ -33,6 +33,7 @@ type Domain interface { //nolint
 	GetXMLDesc(flags DomainXMLFlags) (string, error)
 	GetName() (string, error)
 	QemuAgentCommand(ctx context.Context, cmd string, flags uint32) (string, error)
+	OpenConsole(devname string, flags *ConsoleFlags) (*Console, error)
 }
 
 // Domainee is a implement of Domain.
@@ -61,6 +62,33 @@ func (d *Domainee) QemuAgentCommand(ctx context.Context, cmd string, flags uint3
 		timeout = libvirtgo.DomainQemuAgentCommandTimeout(remain.Seconds())
 	}
 	return d.Domain.QemuAgentCommand(cmd, timeout, flags)
+}
+
+func (d *Domainee) OpenConsole(devname string, cf *ConsoleFlags) (*Console, error) {
+	conn, err := d.Domain.DomainGetConnect()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	stream, err := conn.NewStream(cf.genStreamFlags())
+	if err != nil {
+		return nil, err
+	}
+	if err := d.Domain.OpenConsole(devname, stream, cf.genLibvirtFlags()); err != nil {
+		return nil, errors.Trace(err)
+	}
+	con := newConsole(stream)
+
+	if cf.Nonblock {
+		err = con.AddCallback()
+	} else {
+		err = con.AddReadWriter()
+	}
+	if err != nil {
+		con.close(false)
+		return nil, err
+	}
+	return con, nil
 }
 
 // AttachVolume .

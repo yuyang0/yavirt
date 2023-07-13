@@ -20,7 +20,6 @@ import (
 	"github.com/projecteru2/yavirt/internal/service/boar"
 	"github.com/projecteru2/yavirt/internal/ver"
 	"github.com/projecteru2/yavirt/internal/virt"
-	"github.com/projecteru2/yavirt/internal/virt/guest"
 	"github.com/projecteru2/yavirt/pkg/errors"
 	"github.com/projecteru2/yavirt/pkg/log"
 )
@@ -120,12 +119,6 @@ func Run(c *cli.Context) error {
 	if err := virt.Cleanup(); err != nil {
 		return errors.Trace(err)
 	}
-
-	// setup epoller
-	if err := guest.SetupEpoller(); err != nil {
-		return errors.Trace(err)
-	}
-	defer guest.GetCurrentEpoller().Close()
 
 	quit := make(chan struct{})
 	grpcSrv := grpcserver.New(br, quit)

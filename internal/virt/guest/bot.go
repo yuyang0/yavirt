@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
-	"syscall"
 	"time"
 
 	"github.com/projecteru2/yavirt/configs"
@@ -32,7 +31,7 @@ type Bot interface { //nolint
 	Resume() error
 	Undefine() error
 	Migrate() error
-	OpenConsole(context.Context, types.OpenConsoleFlags) (types.Console, error)
+	OpenConsole(context.Context, types.OpenConsoleFlags) (*libvirt.Console, error)
 	ExecuteCommand(context.Context, []string) (output []byte, exitCode, pid int, err error)
 	GetState() (libvirt.DomainState, error)
 	GetUUID() (string, error)
@@ -372,27 +371,14 @@ func (v *bot) reloadGA() error {
 	return nil
 }
 
-func (v *bot) OpenConsole(_ context.Context, flags types.OpenConsoleFlags) (types.Console, error) {
-	ttyname, err := v.dom.GetConsoleTtyname()
-	if err != nil {
-		return nil, err
-	}
-	stream, err := v.openConsole(ttyname, flags)
-	return stream, err
-}
-
-func (v *bot) openConsole(devname string, _ types.OpenConsoleFlags) (types.Console, error) {
-	fd, err := syscall.Socket(syscall.AF_UNIX, syscall.SOCK_STREAM, 0)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	_, _, errno := syscall.Syscall(syscall.SYS_FCNTL, uintptr(fd), syscall.F_SETFL, syscall.FD_CLOEXEC)
-	if errno != 0 {
-		return nil, errors.Trace(err)
-	}
-
-	return fdAdapter{fd}, syscall.Connect(fd, &syscall.SockaddrUnix{Name: devname})
+func (v *bot) OpenConsole(_ context.Context, flags types.OpenConsoleFlags) (*libvirt.Console, error) {
+	// ttyname, err := v.dom.GetConsoleTtyname()
+	// if err != nil {
+	// 	return nil, err
+	// }
+	ttyname := ""
+	c, err := v.dom.OpenConsole(ttyname, flags)
+	return c, err
 }
 
 func (v *bot) ExecuteCommand(ctx context.Context, commands []string) (output []byte, exitCode, pid int, err error) {

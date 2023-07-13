@@ -39,6 +39,7 @@ type Domain interface { //nolint
 	CheckShutoff() error
 	GetUUID() (string, error)
 	GetConsoleTtyname() (string, error)
+	OpenConsole(devname string, flages types.OpenConsoleFlags) (*libvirt.Console, error)
 	AttachVolume(buf []byte) (st libvirt.DomainState, err error)
 	AmplifyVolume(filepath string, cap uint64) error
 	Define() error
@@ -480,6 +481,15 @@ func (d *VirtDomain) GetConsoleTtyname() (devname string, err error) {
 		}
 	}
 	return "", errors.Errorf("channel0 not found")
+}
+
+func (d *VirtDomain) OpenConsole(devname string, flags types.OpenConsoleFlags) (*libvirt.Console, error) {
+	dom, err := d.Lookup()
+	if err != nil {
+		return nil, err
+	}
+	defer dom.Free()
+	return dom.OpenConsole(devname, &flags.ConsoleFlags)
 }
 
 // SetSpec .

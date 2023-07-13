@@ -19,6 +19,11 @@ type Libvirtee struct {
 	*libvirtgo.Connect
 }
 
+// Need run event loop if use async of console
+func Init() error {
+	return libvirtgo.EventRegisterDefaultImpl()
+}
+
 // Connect connects a guest's domain.
 func Connect(uri string) (l *Libvirtee, err error) {
 	l = &Libvirtee{}

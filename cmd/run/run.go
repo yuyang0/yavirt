@@ -44,6 +44,12 @@ func (r Runtime) VirtContext() context.Context {
 	return util.SetCalicoHandler(r.Ctx, r.CalicoHandler)
 }
 
+func (r Runtime) VirtCancelContext() (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(context.Background())
+	ctx = util.SetCalicoHandler(ctx, r.CalicoHandler)
+	return ctx, cancel
+}
+
 // ConvDecimal .
 func (r Runtime) ConvDecimal(ipv4 string) int64 {
 	if len(ipv4) < 1 {

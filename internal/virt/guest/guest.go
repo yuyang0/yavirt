@@ -637,84 +637,48 @@ func (g *Guest) Distro() string {
 func (g *Guest) AttachConsole(ctx context.Context, serverStream io.ReadWriteCloser, flags types.OpenConsoleFlags) error {
 	return g.botOperate(func(bot Bot) error {
 		// epoller should bind with deamon's lifecycle but just init/destroy here for simplicity
-		epoller := GetCurrentEpoller()
-		if epoller == nil {
-			return errors.New("Epoller is not initialized")
-		}
-		g.ExecuteCommand(ctx, []string{"yaexec", "kill"}) //nolint // to grapple with yavirt collapsed with yaexec alive
-		console, err := bot.OpenConsole(ctx, types.NewOpenConsoleFlags(flags.Force, flags.Safe))
+		console, err := bot.OpenConsole(ctx, flags)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		epollConsole, err := epoller.Add(console)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		log.Infof("[guest.AttachConsole] console opened")
 
-		commands := []string{"yaexec", "exec", "--"}
-		commands = append(commands, flags.Commands...)
-		g.ExecuteCommand(ctx, commands) //nolint
-		log.Infof("[guest.AttachConsole] yaexec executing: %v", commands)
-
-		copyDone := make(chan struct{})
-		ctx, cancel := context.WithCancel(ctx)
-		types.ConsoleStateManager.MarkConsoleOpen(ctx, g.ID)
+		done1 := make(chan struct{})
+		done2 := make(chan struct{})
 
 		// pty -> user
-		wg := sync.WaitGroup{}
-		wg.Add(1)
 		go func() {
 			defer func() {
-				log.Infof("[guest.AttachConsole] copy console stream to server stream complete")
-				types.ConsoleStateManager.MarkConsoleClose(ctx, g.ID)
-				select {
-				case copyDone <- struct{}{}:
-				case <-ctx.Done():
-				}
-				wg.Done()
+				close(done1)
 				log.Infof("[guest.AttachConsole] copy console stream goroutine exited")
 			}()
-			utils.CopyIO(ctx, serverStream, epollConsole) //nolint
+			console.To(ctx, serverStream) //nolint
 		}()
 
 		// user -> pty
-		wg.Add(1)
 		go func() {
 			defer func() {
-				log.Infof("[guest.AttachConsole] copy server stream to console stream complete")
-				select {
-				case copyDone <- struct{}{}:
-				case <-ctx.Done():
-				}
-				wg.Done()
+				close(done2)
 				log.Infof("[guest.AttachConsole] copy server stream goroutine exited")
 			}()
-			utils.CopyIO(ctx, epollConsole, serverStream) //nolint
-		}()
-
-		// close MPSC chan
-		go func() {
-			wg.Wait()
-			close(copyDone)
-			log.Infof("[guest.AttachConsole] copy closed")
+			console.From(ctx, serverStream) //nolint
 		}()
 
 		// either copy goroutine exit
 		select {
-		case <-copyDone:
+		case <-done1:
+		case <-done2:
 		case <-ctx.Done():
+			log.Debugf("[guest.AttachConsole] context done")
 		}
-		cancel()
-		// remove from epoller and shutdown console
-		if err := epollConsole.Shutdown(epoller.CloseConsole); err != nil {
-			log.Errorf("[guest.AttachConsole] failed to shutdown epoll console")
-		}
-		if err := epollConsole.Close(); err != nil {
+		if err := console.Close(); err != nil {
 			log.Errorf("[guest.AttachConsole] failed to close epoll console")
 		}
-		g.ExecuteCommand(context.Background(), []string{"yaexec", "kill"}) //nolint
-		log.Infof("[guest.AttachConsole] yaexec completes: %v", commands)
+
+		<-done1
+		<-done2
+		log.Infof("[guest.AttachConsole] exit.")
+		// g.ExecuteCommand(context.Background(), []string{"yaexec", "kill"}) //nolint
+		// log.Infof("[guest.AttachConsole] yaexec completes: %v", commands)
 		return nil
 	})
 }
@@ -722,7 +686,7 @@ func (g *Guest) AttachConsole(ctx context.Context, serverStream io.ReadWriteClos
 // ResizeConsoleWindow .
 func (g *Guest) ResizeConsoleWindow(ctx context.Context, height, width uint) (err error) {
 	return g.botOperate(func(bot Bot) error {
-		types.ConsoleStateManager.WaitUntilConsoleOpen(ctx, g.ID)
+		// types.ConsoleStateManager.WaitUntilConsoleOpen(ctx, g.ID)
 		resizeCmd := fmt.Sprintf("yaexec resize -r %d -c %d", height, width)
 		output, code, _, err := g.ExecuteCommand(ctx, strings.Split(resizeCmd, " "))
 		if code != 0 || err != nil {
