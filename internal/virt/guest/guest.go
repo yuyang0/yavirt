@@ -662,7 +662,7 @@ func (g *Guest) AttachConsole(ctx context.Context, serverStream io.ReadWriteClos
 				log.Infof("[guest.AttachConsole] copy server stream goroutine exited")
 			}()
 
-			initCmds := append([]byte(strings.Join(flags.Commands, " ")), byte(13))
+			initCmds := append([]byte(strings.Join(flags.Commands, " ")), '\r')
 			reader := io.MultiReader(bytes.NewBuffer(initCmds), serverStream)
 			console.From(ctx, reader) //nolint
 		}()

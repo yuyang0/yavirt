@@ -56,9 +56,14 @@ func attachGuest(c *cli.Context, runtime run.Runtime) error { //nolint
 	id := c.Args().First()
 	cmds := c.Args().Tail()
 	timeout := c.Int("timeout")
+	force := c.Bool("force")
+	safe := c.Bool("safe")
+	devname := c.String("devname")
+
 	log.Debugf("attaching guest %s timeout %d", id, timeout)
 
-	flags := virtypes.NewOpenConsoleFlags(false, true, cmds)
+	flags := virtypes.NewOpenConsoleFlags(force, safe, cmds)
+	flags.Devname = devname
 	stream := &buffer{
 		fromQ: utils.NewBytesQueue(),
 		to:    make(chan []byte, 10),

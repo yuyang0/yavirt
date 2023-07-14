@@ -14,6 +14,7 @@ type Console interface {
 // OpenConsoleFlags .
 type OpenConsoleFlags struct {
 	libvirt.ConsoleFlags
+	Devname  string
 	Commands []string
 }
 

@@ -37,6 +37,7 @@ var (
 type Domain interface { //nolint
 	Lookup() (libvirt.Domain, error)
 	CheckShutoff() error
+	CheckRunning() error
 	GetUUID() (string, error)
 	GetConsoleTtyname() (string, error)
 	OpenConsole(devname string, flages types.OpenConsoleFlags) (*libvirt.Console, error)
@@ -70,14 +71,11 @@ func New(guest *models.Guest, virt libvirt.Libvirt) *VirtDomain {
 type XML struct {
 	Name    string `xml:"name"`
 	Devices struct {
-		Channel []struct {
-			Source struct {
-				Path string `xml:"path,attr"`
-			} `xml:"source"`
+		Console []struct {
 			Alias struct {
 				Name string `xml:"name,attr"`
 			} `xml:"alias"`
-		} `xml:"channel"`
+		} `xml:"console"`
 	} `xml:"devices"`
 }
 
@@ -212,6 +210,24 @@ func (d *VirtDomain) CheckShutoff() error {
 		return errors.Trace(err)
 	case st != libvirt.DomainShutoff:
 		return types.NewDomainStatesErr(st, libvirt.DomainShutoff)
+	default:
+		return nil
+	}
+}
+
+// CheckRunning .
+func (d *VirtDomain) CheckRunning() error {
+	dom, err := d.Lookup()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer dom.Free()
+
+	switch st, err := dom.GetState(); {
+	case err != nil:
+		return errors.Trace(err)
+	case st != libvirt.DomainRunning:
+		return types.NewDomainStatesErr(st, libvirt.DomainRunning)
 	default:
 		return nil
 	}
@@ -452,21 +468,6 @@ func (d *VirtDomain) GetXMLString() (xml string, err error) {
 
 // GetConsoleTtyname .
 func (d *VirtDomain) GetConsoleTtyname() (devname string, err error) {
-	var dom libvirt.Domain
-	if dom, err = d.Lookup(); err != nil {
-		return
-	}
-	defer dom.Free()
-
-	expState := libvirt.DomainRunning
-	switch st, err := dom.GetState(); {
-	case err != nil:
-		return "", errors.Trace(err)
-
-	case st != expState:
-		return "", types.NewDomainStatesErr(st, expState)
-	}
-
 	x, err := d.GetXMLString()
 	if err != nil {
 		return
@@ -475,12 +476,10 @@ func (d *VirtDomain) GetConsoleTtyname() (devname string, err error) {
 	if err = xml.Unmarshal([]byte(x), domainXML); err != nil {
 		return
 	}
-	for _, c := range domainXML.Devices.Channel {
-		if c.Alias.Name == "channel0" {
-			return c.Source.Path, nil
-		}
+	if len(domainXML.Devices.Console) > 1 {
+		return domainXML.Devices.Console[1].Alias.Name, nil
 	}
-	return "", errors.Errorf("channel0 not found")
+	return "", nil
 }
 
 func (d *VirtDomain) OpenConsole(devname string, flags types.OpenConsoleFlags) (*libvirt.Console, error) {

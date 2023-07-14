@@ -74,6 +74,7 @@ func (d *Domainee) OpenConsole(devname string, cf *ConsoleFlags) (*Console, erro
 	if err != nil {
 		return nil, err
 	}
+	log.Debugf("devname: %s", devname)
 	if err := d.Domain.OpenConsole(devname, stream, cf.genLibvirtFlags()); err != nil {
 		return nil, errors.Trace(err)
 	}

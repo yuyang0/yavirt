@@ -372,11 +372,18 @@ func (v *bot) reloadGA() error {
 }
 
 func (v *bot) OpenConsole(_ context.Context, flags types.OpenConsoleFlags) (*libvirt.Console, error) {
-	// ttyname, err := v.dom.GetConsoleTtyname()
-	// if err != nil {
-	// 	return nil, err
-	// }
-	ttyname := ""
+	err := v.dom.CheckRunning()
+	if err != nil {
+		return nil, err
+	}
+	// yavirtctl may specify devname directly
+	ttyname := flags.Devname
+	if ttyname == "" {
+		ttyname, err = v.dom.GetConsoleTtyname()
+		if err != nil {
+			return nil, err
+		}
+	}
 	c, err := v.dom.OpenConsole(ttyname, flags)
 	return c, err
 }

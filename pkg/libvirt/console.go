@@ -54,11 +54,14 @@ func newConsole(s *libvirtgo.Stream) *Console {
 	}
 }
 
-func needExit(ctx context.Context, quit chan struct{}) bool {
+func (c *Console) needExit(ctx context.Context) bool {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	select {
 	case <-ctx.Done():
 		return true
-	case <-quit:
+	case <-c.quit:
 		return true
 	default:
 		return false
@@ -68,7 +71,7 @@ func needExit(ctx context.Context, quit chan struct{}) bool {
 func (c *Console) From(ctx context.Context, r io.Reader) error {
 	buf := make([]byte, 64*1024)
 	for {
-		if needExit(ctx, c.quit) {
+		if c.needExit(ctx) {
 			return nil
 		}
 		n, err := r.Read(buf)
@@ -78,7 +81,7 @@ func (c *Console) From(ctx context.Context, r io.Reader) error {
 			}
 			return err
 		}
-		if needExit(ctx, c.quit) {
+		if c.needExit(ctx) {
 			return nil
 		}
 		bs := buf[:n]
@@ -97,7 +100,7 @@ func (c *Console) From(ctx context.Context, r io.Reader) error {
 func (c *Console) To(ctx context.Context, w io.Writer) error {
 	buf := make([]byte, 64*1024)
 	for {
-		if needExit(ctx, c.quit) {
+		if c.needExit(ctx) {
 			return nil
 		}
 		n, err := c.fromQ.Read(buf)
@@ -108,7 +111,7 @@ func (c *Console) To(ctx context.Context, w io.Writer) error {
 			return err
 		}
 
-		if needExit(ctx, c.quit) {
+		if c.needExit(ctx) {
 			return nil
 		}
 
@@ -161,47 +164,50 @@ func sendAll(stream *libvirtgo.Stream, bs []byte) error {
 
 // For block stream IO
 func (c *Console) AddReadWriter() error {
+	ctx := context.Background()
 	go func() {
-		defer log.Infof("Send goroutine exit")
+		defer log.Infof("[AddReadWriter] Send goroutine exit")
 		for {
-			select {
-			case <-c.quit:
+			if c.needExit(ctx) {
 				return
-			default:
 			}
 			bs, err := c.toQ.Pop()
 			if err != nil {
-				log.Warnf("Got error when write to console toQ queue: %s", err)
+				log.Warnf("[AddReadWriter] Got error when write to console toQ queue: %s", err)
+				return
+			}
+			if c.needExit(ctx) {
 				return
 			}
 			err = sendAll(c.Stream, bs)
 			if err != nil {
-				log.Warnf("Got error when write to console stream: %s", err)
+				log.Warnf("[AddReadWriter] Got error when write to console stream: %s", err)
 				return
 			}
 			log.Debugf("[AddReadWriter] sent to stream: %v\r\n", bs)
 		}
 	}()
 	go func() {
-		defer log.Infof("Recv goroutine exit")
+		defer log.Infof("[AddReadWriter] Recv goroutine exit")
 		buf := make([]byte, 100*1024)
 		for {
-			select {
-			case <-c.quit:
+			if c.needExit(ctx) {
 				return
-			default:
 			}
 			n, err := c.Stream.Recv(buf)
 			if err != nil {
-				log.Warnf("Got error when read from console stream: %s", err)
+				log.Warnf("[AddReadWriter] Got error when read from console stream: %s", err)
 				return
 			}
 			bs := buf[:n]
 			log.Debugf("[AddReadWriter] recv from stream: %v\r\n", bs)
 
+			if c.needExit(ctx) {
+				return
+			}
 			_, err = c.fromQ.Write(bs)
 			if err != nil {
-				log.Warnf("Got error when write to console queue: %s", err)
+				log.Warnf("[AddReadWriter] Got error when write to console queue: %s", err)
 				return
 			}
 		}
