@@ -224,25 +224,25 @@ func (_m *Domain) GetXMLDesc(flags golibvirt.DomainXMLFlags) (string, error) {
 	return r0, r1
 }
 
-// OpenConsole provides a mock function with given fields: devname, force, safe
-func (_m *Domain) OpenConsole(devname string, force bool, safe bool) (*libvirt.Console, error) {
-	ret := _m.Called(devname, force, safe)
+// OpenConsole provides a mock function with given fields: devname, flags
+func (_m *Domain) OpenConsole(devname string, flags *libvirt.ConsoleFlags) (*libvirt.Console, error) {
+	ret := _m.Called(devname, flags)
 
 	var r0 *libvirt.Console
 	var r1 error
-	if rf, ok := ret.Get(0).(func(string, bool, bool) (*libvirt.Console, error)); ok {
-		return rf(devname, force, safe)
+	if rf, ok := ret.Get(0).(func(string, *libvirt.ConsoleFlags) (*libvirt.Console, error)); ok {
+		return rf(devname, flags)
 	}
-	if rf, ok := ret.Get(0).(func(string, bool, bool) *libvirt.Console); ok {
-		r0 = rf(devname, force, safe)
+	if rf, ok := ret.Get(0).(func(string, *libvirt.ConsoleFlags) *libvirt.Console); ok {
+		r0 = rf(devname, flags)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*libvirt.Console)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(string, bool, bool) error); ok {
-		r1 = rf(devname, force, safe)
+	if rf, ok := ret.Get(1).(func(string, *libvirt.ConsoleFlags) error); ok {
+		r1 = rf(devname, flags)
 	} else {
 		r1 = ret.Error(1)
 	}
