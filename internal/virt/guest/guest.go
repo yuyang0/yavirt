@@ -3,7 +3,6 @@ package guest
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"strings"
 	"sync"
@@ -688,16 +687,17 @@ func (g *Guest) AttachConsole(ctx context.Context, serverStream io.ReadWriteClos
 }
 
 // ResizeConsoleWindow .
-func (g *Guest) ResizeConsoleWindow(ctx context.Context, height, width uint) (err error) {
-	return g.botOperate(func(bot Bot) error {
-		// types.ConsoleStateManager.WaitUntilConsoleOpen(ctx, g.ID)
-		resizeCmd := fmt.Sprintf("yaexec resize -r %d -c %d", height, width)
-		output, code, _, err := g.ExecuteCommand(ctx, strings.Split(resizeCmd, " "))
-		if code != 0 || err != nil {
-			log.Errorf("[guest.ResizeConsoleWindow] resize failed: %v, %v", output, err)
-		}
-		return err
-	}, true)
+func (g *Guest) ResizeConsoleWindow(ctx context.Context, height, width uint) (err error) { //nolint
+	// TODO better way to resize console window size
+	return nil
+	// return g.botOperate(func(bot Bot) error {
+	// 	resizeCmd := fmt.Sprintf("yaexec resize -r %d -c %d", height, width)
+	// 	output, code, _, err := g.ExecuteCommand(ctx, strings.Split(resizeCmd, " "))
+	// 	if code != 0 || err != nil {
+	// 		log.Errorf("[guest.ResizeConsoleWindow] resize failed: %v, %v", output, err)
+	// 	}
+	// 	return err
+	// }, true)
 }
 
 // Cat .
